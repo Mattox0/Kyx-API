@@ -185,10 +185,11 @@ export class TruthDareService {
       .createQueryBuilder()
       .select('truthDare')
       .from(TruthDare, 'truthDare')
+      .leftJoinAndSelect('truthDare.mode', 'mode')
       .where('truthDare.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
       .orderBy('RANDOM()')
-      .take(100)
+      .limit(100)
       .getMany();
 
     const menUsers = dto.users.filter((u) => u.gender === Gender.MAN);

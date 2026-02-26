@@ -171,9 +171,10 @@ export class PreferService {
       .createQueryBuilder()
       .select('prefer')
       .from(Prefer, 'prefer')
+      .leftJoinAndSelect('prefer.mode', 'mode')
       .where('prefer.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .orderBy('RANDOM()')
-      .take(100)
+      .limit(100)
       .getMany();
   }
 }

@@ -165,9 +165,10 @@ export class NeverHaveService {
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
+      .leftJoinAndSelect('neverHave.mode', 'mode')
       .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .orderBy('RANDOM()')
-      .take(100)
+      .limit(100)
       .getMany();
   }
 }
