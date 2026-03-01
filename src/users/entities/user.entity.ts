@@ -9,6 +9,7 @@ import {
 import { Report } from '../../report/entities/report.entity.js';
 import { Suggestion } from '../../suggestion/entities/suggestion.entity.js';
 import { Gender } from '../../../types/enums/Gender.js';
+import { Friend } from '../../friend/entities/friend.entity.js';
 
 @Entity('user')
 export class User {
@@ -34,6 +35,9 @@ export class User {
 
   @Column({ type: 'jsonb', nullable: true })
   avatarOptions?: Record<string, unknown>;
+
+  @Column({ type: 'varchar', length: 6, unique: true, nullable: true })
+  friendCode?: string;
 
   @CreateDateColumn()
   createdAt: Date;

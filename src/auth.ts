@@ -28,9 +28,10 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          if (user.name === user.email) {
-            return { data: { ...user, name: null as unknown as string } };
-          }
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          const friendCode = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+          const name = user.name === user.email ? null as unknown as string : user.name;
+          return { data: { ...user, name, friendCode } };
         },
       },
     },
@@ -46,6 +47,11 @@ export const auth = betterAuth({
         returned: true,
       },
       avatarOptions: {
+        type: "string",
+        required: false,
+        returned: true,
+      },
+      friendCode: {
         type: "string",
         required: false,
         returned: true,
