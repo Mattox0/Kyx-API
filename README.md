@@ -10,4 +10,4 @@ Ajouter l'url de callback dans google cloud
 
 ### Apple
 
-Setup le apple https://www.better-auth.com/docs/authentication/apple
+Setup apple https://www.better-auth.com/docs/authentication/apple
