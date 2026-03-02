@@ -23,6 +23,7 @@ import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { AdminAuthModule } from './auth/admin.auth.js';
 import { UserModule } from './users/user.module.js';
 import { FriendModule } from './friend/friend.module.js';
+import { GameModule } from './game/game.module.js';
 
 @Module({
   imports: [
@@ -58,7 +59,8 @@ import { FriendModule } from './friend/friend.module.js';
     SuggestionModule,
     AdminAuthModule,
     UserModule,
-    FriendModule
+    FriendModule,
+    GameModule
   ],
   controllers: [],
   providers: [ModeExistsConstraint],

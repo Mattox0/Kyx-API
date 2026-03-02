@@ -16,10 +16,19 @@ import { PreferService } from '../service/prefer.service.js';
 import { UpdatePreferDto } from '../dto/update-prefer.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 import { CreatePartyPreferDto } from '../dto/create-party-prefer.dto.js';
+import { CreateGameDto } from '../../game/dto/create-game.dto.js';
+import { GameType } from '../../../types/enums/GameType.js';
+import {
+  AuthGuard,
+  OptionalAuth,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth';
+import { GameService } from '../../game/service/game.service.js';
 
 @Controller('prefer')
 export class PreferController {
-  constructor(private readonly preferService: PreferService) {}
+  constructor(private readonly preferService: PreferService, private readonly gameService: GameService) {}
 
   @Post("")
   @UseGuards(AdminAuthGuard)
@@ -64,8 +73,16 @@ export class PreferController {
     return this.preferService.bulkCreate(dto.questions);
   }
 
-  @Post("create-party/solo")
-  async createPartySolo(@Body() dto: CreatePartyPreferDto) {
-    return this.preferService.createPartySolo(dto);
+  @Post("create-party/local")
+  @UseGuards(AuthGuard)
+  @OptionalAuth()
+  async createPartySolo(@Body() dto: CreatePartyPreferDto, @Session() session: UserSession) {
+    const createGame: CreateGameDto = {
+      gameType: GameType.PREFER,
+      modeIds: dto.modes,
+      isLocal: true,
+    }
+    const game = await this.gameService.create(createGame, session?.user?.id)
+    return { gameId: game.id, questions: this.preferService.createPartySolo(dto) };
   }
 }

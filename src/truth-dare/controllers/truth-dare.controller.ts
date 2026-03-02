@@ -16,10 +16,19 @@ import { ImportTruthDareDto } from '../dto/import-truth-dare.dto.js';
 import { UpdateTruthDareDto } from '../dto/update-truth-dare.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 import { CreatePartyTruthDareDto } from '../dto/create-party-truth-dare.dto.js';
+import { CreateGameDto } from '../../game/dto/create-game.dto.js';
+import { GameType } from '../../../types/enums/GameType.js';
+import {
+  AuthGuard,
+  OptionalAuth,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth';
+import { GameService } from '../../game/service/game.service.js';
 
 @Controller('truth-dare')
 export class TruthDareController {
-  constructor(private readonly truthDareService: TruthDareService) {}
+  constructor(private readonly truthDareService: TruthDareService, private readonly gameService: GameService) {}
 
   @Post("")
   @UseGuards(AdminAuthGuard)
@@ -64,8 +73,16 @@ export class TruthDareController {
     return this.truthDareService.bulkCreate(dto.questions);
   }
 
-  @Post("create-party/solo")
-  async createPartySolo(@Body() dto: CreatePartyTruthDareDto) {
-    return this.truthDareService.createPartySolo(dto);
+  @Post("create-party/local")
+  @UseGuards(AuthGuard)
+  @OptionalAuth()
+  async createPartySolo(@Body() dto: CreatePartyTruthDareDto, @Session() session: UserSession) {
+    const createGame: CreateGameDto = {
+      gameType: GameType.TRUTH_DARE,
+      modeIds: dto.modes,
+      isLocal: true,
+    }
+    const game = await this.gameService.create(createGame, session?.user?.id)
+    return { gameId: game.id, questions: this.truthDareService.createPartySolo(dto) };
   }
 }

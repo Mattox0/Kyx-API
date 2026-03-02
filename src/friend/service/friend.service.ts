@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Friend } from '../entities/friend.entity.js';
 import { RequestFriendDto } from '../dto/request-friend.dto.js';
@@ -19,6 +19,34 @@ export class FriendService {
 
     if (!userRequested) {
       throw new NotFoundException(`User not found`);
+    }
+
+    const alreadyFriends = await this.dataSource
+      .createQueryBuilder()
+      .select('friend')
+      .from(Friend, 'friend')
+      .where(
+        '(friend.userId = :userId AND friend.friendId = :friendId) OR (friend.userId = :friendId AND friend.friendId = :userId)',
+        { userId, friendId: userRequested.id },
+      )
+      .getOne();
+
+    if (alreadyFriends) {
+      throw new ConflictException(`Users are already friends`);
+    }
+
+    const alreadyRequested = await this.dataSource
+      .createQueryBuilder()
+      .select('friendRequest')
+      .from(FriendRequest, 'friendRequest')
+      .where(
+        '(friendRequest.userId = :userId AND friendRequest.friendId = :friendId) OR (friendRequest.userId = :friendId AND friendRequest.friendId = :userId)',
+        { userId, friendId: userRequested.id },
+      )
+      .getOne();
+
+    if (alreadyRequested) {
+      throw new ConflictException(`Friend request already exists`);
     }
 
     const result = await this.dataSource
