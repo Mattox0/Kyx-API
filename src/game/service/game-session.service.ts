@@ -28,7 +28,7 @@ export class GameSessionService {
     return data ? JSON.parse(data) : [];
   }
 
-  async addPlayer(code: string, player: PlayerSession): Promise<{ player: PlayerSession; players: PlayerSession[] }> {
+  async addPlayer(code: string, player: PlayerSession): Promise<PlayerSession[]> {
     const players = await this.getPlayers(code);
 
     const newPlayer: PlayerSession = { ...player, hasAnswered: false, answer: null };
@@ -41,7 +41,7 @@ export class GameSessionService {
     }
 
     await this.redisService.setex(`game:${code}:players`, TTL, JSON.stringify(players));
-    return { player: newPlayer, players };
+    return players;
   }
 
   async submitAnswer(
@@ -65,7 +65,7 @@ export class GameSessionService {
     return { players, allAnswered, results };
   }
 
-  private computeResults(players: PlayerSession[]): Record<string, number> {
+  computeResults(players: PlayerSession[]): Record<string, number> {
     const counts: Record<string, number> = {};
     for (const { answer } of players) {
       if (answer !== null) counts[answer] = (counts[answer] ?? 0) + 1;
@@ -105,11 +105,13 @@ export class GameSessionService {
     return game;
   }
 
-  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: null } | null> {
+  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: null; questionNumber: number } | null> {
     const game = await this.getGame(code);
     if (!game) return null;
 
     const { gameType, modeIds, previousQuestionsIds } = game;
+
+    if (previousQuestionsIds.length >= 100) return null;
 
     const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds);
     if (!question) return null;
@@ -119,7 +121,7 @@ export class GameSessionService {
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
     await this.resetAnswers(code);
 
-    return { question: question.entity, questionType: question.questionType, userTarget: null };
+    return { question: question.entity, questionType: question.questionType, userTarget: null, questionNumber: game.previousQuestionsIds.length };
   }
 
   private async fetchQuestion(

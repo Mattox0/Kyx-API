@@ -15,7 +15,7 @@ import { Prefer } from '../entities/prefer.entity.js';
 import { PreferService } from '../service/prefer.service.js';
 import { UpdatePreferDto } from '../dto/update-prefer.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
-import { CreatePartyPreferDto } from '../dto/create-party-prefer.dto.js';
+import { CreatePartyPreferDto, CreatePartyOnlinePreferDto } from '../dto/create-party-prefer.dto.js';
 import { CreateGameDto } from '../../game/dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import {
@@ -84,5 +84,17 @@ export class PreferController {
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
     return { gameId: game.id, questions: this.preferService.createPartySolo(dto) };
+  }
+
+  @Post("create-party/online")
+  @UseGuards(AuthGuard)
+  async createPartyOnline(@Body() dto: CreatePartyOnlinePreferDto, @Session() session: UserSession) {
+    const createGame: CreateGameDto = {
+      gameType: GameType.PREFER,
+      modeIds: dto.modes,
+      isLocal: false,
+    }
+    const game = await this.gameService.create(createGame, session.user.id)
+    return { gameId: game.id, code: game.code }
   }
 }

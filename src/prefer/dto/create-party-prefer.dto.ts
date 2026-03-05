@@ -25,6 +25,14 @@ export class UserSoloItemDto {
   gender: Gender;
 }
 
+export class CreatePartyOnlinePreferDto {
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @Validate(ModeExistsConstraint, { each: true })
+  modes: string[];
+}
+
 export class CreatePartyPreferDto {
   @IsArray()
   @ValidateNested({ each: true })

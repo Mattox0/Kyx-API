@@ -15,7 +15,7 @@ import { CreateTruthDareDto } from '../dto/create-truth-dare.dto.js';
 import { ImportTruthDareDto } from '../dto/import-truth-dare.dto.js';
 import { UpdateTruthDareDto } from '../dto/update-truth-dare.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
-import { CreatePartyTruthDareDto } from '../dto/create-party-truth-dare.dto.js';
+import { CreatePartyTruthDareDto, CreatePartyOnlineTruthDareDto } from '../dto/create-party-truth-dare.dto.js';
 import { CreateGameDto } from '../../game/dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import {
@@ -84,5 +84,17 @@ export class TruthDareController {
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
     return { gameId: game.id, questions: this.truthDareService.createPartySolo(dto) };
+  }
+
+  @Post("create-party/online")
+  @UseGuards(AuthGuard)
+  async createPartyOnline(@Body() dto: CreatePartyOnlineTruthDareDto, @Session() session: UserSession) {
+    const createGame: CreateGameDto = {
+      gameType: GameType.TRUTH_DARE,
+      modeIds: dto.modes,
+      isLocal: false,
+    }
+    const game = await this.gameService.create(createGame, session.user.id)
+    return { gameId: game.id, code: game.code }
   }
 }

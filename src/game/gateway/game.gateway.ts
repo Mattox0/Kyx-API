@@ -63,7 +63,7 @@ export class RoomWebsocketGateway
     client.data.user = { socketId: client.id, ...session.user };
     client.data.code = code;
 
-    const { player, players } = await this.gameSessionService.addPlayer(code, {
+    const players = await this.gameSessionService.addPlayer(code, {
       id: session.user.id,
       name: session.user.name,
       socketId: client.id,
@@ -76,9 +76,26 @@ export class RoomWebsocketGateway
     });
 
     client.join(`game:${code}`);
-    this.server.to(`game:${code}`).emit('playerJoined', { player, players });
-    this.server.to(client.id).emit('status', { status: game.status });
-    this.server.to(client.id).emit('game', { game })
+    this.server.to(`game:${code}`).emit('players', players);
+    this.server.to(client.id).emit('status', game.status);
+    this.server.to(client.id).emit('game', game);
+
+    if (game.currentQuestion) {
+      this.server.to(client.id).emit('currentQuestion', {
+        question: game.currentQuestion,
+        questionType: game.gameType,
+        userTarget: null,
+        questionNumber: game.previousQuestionsIds.length,
+      });
+    }
+
+    const answered = players.filter((p) => p.hasAnswered).length;
+    this.server.to(client.id).emit('answersCount', answered);
+
+    if (players.every((p) => p.hasAnswered)) {
+      const results = this.gameSessionService.computeResults(players);
+      this.server.to(client.id).emit('results', results);
+    }
 
     console.log(`[Game ${code}] ${session.user.name} connected (socket: ${client.id})`);
   }
@@ -112,7 +129,7 @@ export class RoomWebsocketGateway
     if (!code || !user) return;
 
     const players = await this.gameSessionService.removePlayer(code, client.id);
-    this.server.to(`game:${code}`).emit('playerLeft', { userId: user.id, players });
+    this.server.to(`game:${code}`).emit('players', players);
 
     console.log(`[Game ${code}] ${user.name} disconnected`);
   }
@@ -125,10 +142,12 @@ export class RoomWebsocketGateway
       return;
     }
 
-    await this.gameSessionService.startGame(client.data.code);
-    this.server.to(`game:${client.data.code}`).emit('status', { status: GameStatus.IN_PROGRESS });
+    this.server.to(`game:${client.data.code}`).emit('answersCount', 0);
 
     await this.sendNextQuestion(client.data.code);
+
+    await this.gameSessionService.startGame(client.data.code);
+    this.server.to(`game:${client.data.code}`).emit('status', GameStatus.IN_PROGRESS);
   }
 
   @SubscribeMessage('submitAnswer')
@@ -137,10 +156,13 @@ export class RoomWebsocketGateway
 
     const { players, allAnswered, results } = await this.gameSessionService.submitAnswer(code, client.id, payload.answer);
 
-    this.server.to(`game:${code}`).emit('playerAnswered', { userId: client.data.user.id, players });
+    this.server.to(`game:${code}`).emit('players', players);
+
+    const answered = players.filter((p) => p.hasAnswered).length;
+    this.server.to(`game:${code}`).emit('answersCount', answered);
 
     if (allAnswered) {
-      this.server.to(`game:${code}`).emit('allAnswered', { players, results });
+      this.server.to(`game:${code}`).emit('results', results);
     }
   }
 
@@ -163,6 +185,7 @@ export class RoomWebsocketGateway
       return;
     }
 
-    this.server.to(`game:${code}`).emit('nextQuestion', result);
+    this.server.to(`game:${code}`).emit('answersCount', 0);
+    this.server.to(`game:${code}`).emit('currentQuestion', result);
   }
 }
