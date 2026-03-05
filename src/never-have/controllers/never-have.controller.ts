@@ -1,11 +1,25 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards, } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { NeverHave } from '../entities/never-have.entity.js';
 import { CreateNeverHaveDto } from '../dto/create-never-have.dto.js';
 import { ImportNeverHaveDto } from '../dto/import-never-have.dto.js';
 import { NeverHaveService } from '../service/never-have.service.js';
 import { UpdateNeverHaveDto } from '../dto/update-never-have.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
-import { CreatePartySoloNeverHaveDto } from '../dto/create-party-solo-never-have.dto.js';
+import {
+  CreatePartyNeverHaveDto,
+  CreatePartyOnlineNeverHaveDto,
+} from '../dto/create-party-never-have.dto.js';
 import { GameService } from '../../game/service/game.service.js';
 import { AuthGuard, OptionalAuth, Session, type UserSession, } from '@thallesp/nestjs-better-auth';
 import { CreateGameDto } from '../../game/dto/create-game.dto.js';
@@ -61,7 +75,7 @@ export class NeverHaveController {
   @Post("create-party/local")
   @UseGuards(AuthGuard)
   @OptionalAuth()
-  async createPartySolo(@Body() dto: CreatePartySoloNeverHaveDto, @Session() session: UserSession) {
+  async createPartySolo(@Body() dto: CreatePartyNeverHaveDto, @Session() session: UserSession) {
     const createGame: CreateGameDto = {
       gameType: GameType.NEVER_HAVE,
       modeIds: dto.modes,
@@ -69,5 +83,17 @@ export class NeverHaveController {
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
     return {gameId: game.id, questions: this.neverHaveService.createPartySolo(dto)}
+  }
+
+  @Post("create-party/online")
+  @UseGuards(AuthGuard)
+  async createPartyOnline(@Body() dto: CreatePartyOnlineNeverHaveDto, @Session() session: UserSession) {
+    const createGame: CreateGameDto = {
+      gameType: GameType.NEVER_HAVE,
+      modeIds: dto.modes,
+      isLocal: false,
+    }
+    const game = await this.gameService.create(createGame, session.user.id)
+    return { gameId: game.id, code: game.code }
   }
 }

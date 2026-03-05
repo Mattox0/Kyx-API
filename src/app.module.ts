@@ -24,6 +24,7 @@ import { AdminAuthModule } from './auth/admin.auth.js';
 import { UserModule } from './users/user.module.js';
 import { FriendModule } from './friend/friend.module.js';
 import { GameModule } from './game/game.module.js';
+import { RedisModule } from './redis/redis.module.js';
 
 @Module({
   imports: [
@@ -60,7 +61,8 @@ import { GameModule } from './game/game.module.js';
     AdminAuthModule,
     UserModule,
     FriendModule,
-    GameModule
+    GameModule,
+    RedisModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],

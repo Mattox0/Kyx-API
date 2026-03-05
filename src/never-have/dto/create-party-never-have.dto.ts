@@ -25,7 +25,15 @@ export class UserSoloItemDto {
   gender: Gender;
 }
 
-export class CreatePartySoloNeverHaveDto {
+export class CreatePartyOnlineNeverHaveDto {
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @Validate(ModeExistsConstraint, { each: true })
+  modes: string[];
+}
+
+export class CreatePartyNeverHaveDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UserSoloItemDto)

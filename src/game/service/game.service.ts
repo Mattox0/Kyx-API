@@ -4,10 +4,29 @@ import { Game } from '../entities/game.entity.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
 import { CreateGameDto } from '../dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
+import { RedisService } from '../../redis/redis.service.js';
 
 @Injectable()
 export class GameService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly redisService: RedisService,
+  ) {}
+
+  private generateCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+
+  private async generateUniqueCode(): Promise<string> {
+    let code: string;
+    let attempts = 0;
+    do {
+      code = this.generateCode();
+      if (++attempts > 10) throw new Error('Failed to generate unique game code');
+    } while ((await this.redisService.exists(`game:${code}`)) > 0);
+    return code;
+  }
 
   async getStats() {
     const [local, online] = await Promise.all([
@@ -146,14 +165,36 @@ export class GameService {
       throw new NotFoundException('One or more modes not found');
     }
 
+    const isLocal = dto.isLocal ?? true;
+    const code = isLocal ? null : await this.generateUniqueCode();
+
     const game = this.dataSource.manager.create(Game, {
       gameType: dto.gameType,
       modes,
-      isLocal: dto.isLocal ?? true,
+      isLocal,
       creator: userId ? { id: userId } : null,
+      code,
     });
 
-    return this.dataSource.manager.save(game);
+    const saved = await this.dataSource.manager.save(game);
+
+    if (code) {
+      await this.redisService.setex(
+        `game:${code}`,
+        86400,
+        JSON.stringify({
+          gameId: saved.id,
+          gameType: saved.gameType,
+          status: 'waiting',
+          hostId: userId ?? null,
+          modeIds: dto.modeIds,
+          previousQuestionsIds: [],
+          currentQuestion: null
+        }),
+      );
+    }
+
+    return saved;
   }
 
   async end(id: string): Promise<Game> {

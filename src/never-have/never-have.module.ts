@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { NeverHaveController } from './controllers/never-have.controller.js';
 import { NeverHaveService } from './service/never-have.service.js';
-import { NeverHave } from './entities/never-have.entity.js';
-import { GameService } from '../game/service/game.service.js';
+import { GameModule } from '../game/game.module.js';
+
 @Module({
-  imports: [NeverHave],
+  imports: [GameModule],
   controllers: [NeverHaveController],
-  providers: [NeverHaveService, GameService],
-  exports: [NeverHaveService]
+  providers: [NeverHaveService],
+  exports: [NeverHaveService],
 })
 export class NeverHaveModule {}

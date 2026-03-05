@@ -32,6 +32,9 @@ export class Game extends BaseEntity {
   @Column({ type: 'boolean', default: true })
   isLocal: boolean;
 
+  @Column({ type: 'varchar', length: 6, nullable: true, unique: true })
+  code: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   startedAt: Date;
 
