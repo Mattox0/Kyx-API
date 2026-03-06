@@ -5,12 +5,14 @@ import { Mode } from '../mode/entities/mode.entity.js';
 import { GameService } from './service/game.service.js';
 import { GameSessionService } from './service/game-session.service.js';
 import { GameController } from './controllers/game.controller.js';
-import { RoomWebsocketGateway } from './gateway/game.gateway.js';
+import {
+  GameQuestionWebsocketGateway,
+} from './gateway/game.gateway.js';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Game, Mode])],
   controllers: [GameController],
-  providers: [GameService, GameSessionService, RoomWebsocketGateway],
+  providers: [GameService, GameSessionService, GameQuestionWebsocketGateway],
   exports: [GameService, GameSessionService],
 })
 export class GameModule {}

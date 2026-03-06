@@ -18,7 +18,7 @@ import {
 } from '../../../types/ws/PlayerSession.js';
 
 @WebSocketGateway({ cors: '*', namespace: 'game', transports: ['websocket'] })
-export class RoomWebsocketGateway
+export class GameQuestionWebsocketGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Server;
@@ -142,6 +142,10 @@ export class RoomWebsocketGateway
       return;
     }
 
+    if (game?.status === GameStatus.FINISHED) {
+      await this.gameSessionService.restartGame(client.data.code);
+    }
+
     this.server.to(`game:${client.data.code}`).emit('answersCount', 0);
 
     await this.sendNextQuestion(client.data.code);
@@ -181,6 +185,7 @@ export class RoomWebsocketGateway
     const result = await this.gameSessionService.getNextQuestion(code);
 
     if (!result) {
+      await this.gameSessionService.endGame(code);
       this.server.to(`game:${code}`).emit('gameOver', {});
       return;
     }

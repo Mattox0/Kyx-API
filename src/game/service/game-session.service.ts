@@ -8,6 +8,7 @@ import { GameType } from '../../../types/enums/GameType.js';
 import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
+import { Game } from '../entities/game.entity.js';
 
 const TTL = 86400;
 
@@ -95,6 +96,47 @@ export class GameSessionService {
   async findPlayer(code: string, userId: string): Promise<PlayerSession | null> {
     const players = await this.getPlayers(code);
     return players.find((p) => p.id === userId) ?? null;
+  }
+
+  async endGame(code: string): Promise<void> {
+    const game = await this.getGame(code);
+    if (!game) return;
+
+    await this.dataSource
+      .createQueryBuilder()
+      .update(Game)
+      .set({ endedAt: new Date(), code: null })
+      .where('id = :id', { id: game.gameId })
+      .execute();
+
+    game.status = GameStatus.FINISHED;
+    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+  }
+
+  async restartGame(code: string): Promise<void> {
+    const game = await this.getGame(code);
+    if (!game) return;
+
+    const newGame = this.dataSource.manager.create(Game, {
+      gameType: game.gameType,
+      modes: game.modeIds.map((id) => ({ id })),
+      isLocal: false,
+      creator: game.hostId ? { id: game.hostId } : null,
+      code: null,
+    });
+    const saved = await this.dataSource.manager.save(newGame);
+
+    const resetSession: GameSession = {
+      gameId: saved.id,
+      gameType: game.gameType,
+      status: GameStatus.WAITING,
+      hostId: game.hostId,
+      modeIds: game.modeIds,
+      previousQuestionsIds: [],
+      currentQuestion: null,
+    };
+    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(resetSession));
+    await this.resetAnswers(code);
   }
 
   async startGame(code: string): Promise<GameSession | undefined> {
