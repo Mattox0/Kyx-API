@@ -27,6 +27,7 @@ export class PreferService {
     }
 
     const [data, total] = await qb
+      .orderBy('prefer.createdDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

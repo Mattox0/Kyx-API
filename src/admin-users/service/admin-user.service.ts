@@ -23,6 +23,7 @@ export class AdminUserService {
     }
 
     const [data, total] = await qb
+      .orderBy('adminUser.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

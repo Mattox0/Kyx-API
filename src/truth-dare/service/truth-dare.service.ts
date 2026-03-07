@@ -28,6 +28,7 @@ export class TruthDareService {
     }
 
     const [data, total] = await qb
+      .orderBy('truthDare.createdDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

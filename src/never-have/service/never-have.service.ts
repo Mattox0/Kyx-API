@@ -27,6 +27,7 @@ export class NeverHaveService {
     }
 
     const [data, total] = await qb
+      .orderBy('neverHave.createdDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
