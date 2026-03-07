@@ -18,6 +18,7 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 
 @Controller('suggestion')
 export class SuggestionController {
@@ -31,6 +32,7 @@ export class SuggestionController {
   }
 
   @Get()
+  @UseGuards(AdminAuthGuard)
   async findAllSuggestions(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -41,11 +43,13 @@ export class SuggestionController {
   }
 
   @Get(':id')
+  @UseGuards(AdminAuthGuard)
   async findOneSuggestion(@Param('id') id: string): Promise<Suggestion | null> {
     return this.suggestionService.findOne(id);
   }
 
   @Put(':id')
+  @UseGuards(AdminAuthGuard)
   async updateSuggestion(
     @Param('id') id: string,
     @Body() dto: UpdateSuggestionDto,
@@ -54,6 +58,7 @@ export class SuggestionController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminAuthGuard)
   async deleteSuggestion(@Param('id') id: string): Promise<void> {
     return this.suggestionService.remove(id);
   }

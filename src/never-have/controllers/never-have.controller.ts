@@ -82,7 +82,7 @@ export class NeverHaveController {
       isLocal: true,
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
-    return {gameId: game.id, questions: this.neverHaveService.createPartySolo(dto)}
+    return {gameId: game.id, questions: await this.neverHaveService.createPartySolo(dto)}
   }
 
   @Post("create-party/online")

@@ -83,7 +83,7 @@ export class TruthDareController {
       isLocal: true,
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
-    return { gameId: game.id, questions: this.truthDareService.createPartySolo(dto) };
+    return { gameId: game.id, questions: await this.truthDareService.createPartySolo(dto) };
   }
 
   @Post("create-party/online")

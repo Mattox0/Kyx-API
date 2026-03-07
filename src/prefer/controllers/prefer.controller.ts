@@ -83,7 +83,7 @@ export class PreferController {
       isLocal: true,
     }
     const game = await this.gameService.create(createGame, session?.user?.id)
-    return { gameId: game.id, questions: this.preferService.createPartySolo(dto) };
+    return { gameId: game.id, questions: await this.preferService.createPartySolo(dto) };
   }
 
   @Post("create-party/online")

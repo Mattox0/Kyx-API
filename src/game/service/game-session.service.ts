@@ -5,6 +5,7 @@ import { PlayerSession } from '../../../types/ws/PlayerSession.js';
 import { GameStatus } from '../../../types/ws/GameStatus.js';
 import { GameSession, Question } from '../../../types/ws/GameSession.js';
 import { GameType } from '../../../types/enums/GameType.js';
+import { Gender } from '../../../types/enums/Gender.js';
 import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
@@ -87,10 +88,35 @@ export class GameSessionService {
     await this.redisService.setex(`game:${code}:players`, TTL, JSON.stringify(reset));
   }
 
+  async setUserCurrentGame(userId: string, code: string): Promise<void> {
+    await this.redisService.setex(`user:${userId}:game`, TTL, code);
+  }
+
+  async clearUserCurrentGame(userId: string): Promise<void> {
+    await this.redisService.del(`user:${userId}:game`);
+  }
+
+  async getUserGameCode(userId: string): Promise<string | null> {
+    return this.redisService.get(`user:${userId}:game`);
+  }
+
   async removePlayer(code: string, socketId: string): Promise<PlayerSession[]> {
     const players = (await this.getPlayers(code)).filter((p) => p.socketId !== socketId);
     await this.redisService.setex(`game:${code}:players`, TTL, JSON.stringify(players));
     return players;
+  }
+
+  async transferHost(code: string, newHostId: string): Promise<PlayerSession[]> {
+    const game = await this.getGame(code);
+    if (!game) return [];
+
+    game.hostId = newHostId;
+    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+
+    const players = await this.getPlayers(code);
+    const updated = players.map((p) => ({ ...p, isHost: p.id === newHostId }));
+    await this.redisService.setex(`game:${code}:players`, TTL, JSON.stringify(updated));
+    return updated;
   }
 
   async findPlayer(code: string, userId: string): Promise<PlayerSession | null> {
@@ -134,6 +160,7 @@ export class GameSessionService {
       modeIds: game.modeIds,
       previousQuestionsIds: [],
       currentQuestion: null,
+      currentUserTargetId: null,
     };
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(resetSession));
     await this.resetAnswers(code);
@@ -147,7 +174,7 @@ export class GameSessionService {
     return game;
   }
 
-  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: null; questionNumber: number } | null> {
+  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: PlayerSession | null; questionNumber: number } | null> {
     const game = await this.getGame(code);
     if (!game) return null;
 
@@ -160,10 +187,21 @@ export class GameSessionService {
 
     game.previousQuestionsIds = [...previousQuestionsIds, question.entity.id];
     game.currentQuestion = question.entity;
-    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
     await this.resetAnswers(code);
 
-    return { question: question.entity, questionType: question.questionType, userTarget: null, questionNumber: game.previousQuestionsIds.length };
+    let userTarget: PlayerSession | null = null;
+    if (gameType === GameType.TRUTH_DARE) {
+      const players = await this.getPlayers(code);
+      const truthDare = question.entity as TruthDare;
+      const eligible = players.filter((player) => truthDare.gender === Gender.ALL || player.gender === truthDare.gender);
+      const pool = eligible.length > 0 ? eligible : players;
+      userTarget = pool[Math.floor(Math.random() * pool.length)] ?? null;
+    }
+
+    game.currentUserTargetId = userTarget?.id ?? null;
+    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+
+    return { question: question.entity, questionType: question.questionType, userTarget, questionNumber: game.previousQuestionsIds.length };
   }
 
   private async fetchQuestion(

@@ -26,7 +26,6 @@ export class GameQuestionWebsocketGateway
   constructor(private readonly gameSessionService: GameSessionService) {}
 
   async handleConnection(client: Socket): Promise<void> {
-    console.log("connexion");
     const token = (client.handshake.auth?.token
       ?? client.handshake.query?.token) as string | undefined;
 
@@ -75,6 +74,8 @@ export class GameQuestionWebsocketGateway
       answer: null,
     });
 
+    await this.gameSessionService.setUserCurrentGame(session.user.id, code);
+
     client.join(`game:${code}`);
     this.server.to(`game:${code}`).emit('players', players);
     this.server.to(client.id).emit('status', game.status);
@@ -113,6 +114,8 @@ export class GameQuestionWebsocketGateway
 
     const players = await this.gameSessionService.removePlayer(client.data.code, target.socketId);
 
+    await this.gameSessionService.clearUserCurrentGame(target.id);
+
     const targetSocket = (this.server as unknown as Namespace).sockets.get(target.socketId);
     targetSocket?.emit('kicked', { message: 'You have been kicked from the game' });
     targetSocket?.disconnect();
@@ -128,7 +131,18 @@ export class GameQuestionWebsocketGateway
 
     if (!code || !user) return;
 
-    const players = await this.gameSessionService.removePlayer(code, client.id);
+    await this.gameSessionService.clearUserCurrentGame(user.id);
+
+    let players = await this.gameSessionService.removePlayer(code, client.id);
+
+    const game = await this.gameSessionService.getGame(code);
+    if (game && game.hostId === user.id && players.length > 0) {
+      const newHost = players[0];
+      players = await this.gameSessionService.transferHost(code, newHost.id);
+      this.server.to(`game:${code}`).emit('newHost', { hostId: newHost.id });
+      console.log(`[Game ${code}] Host transferred to ${newHost.name}`);
+    }
+
     this.server.to(`game:${code}`).emit('players', players);
 
     console.log(`[Game ${code}] ${user.name} disconnected`);
@@ -173,8 +187,12 @@ export class GameQuestionWebsocketGateway
   @SubscribeMessage('nextQuestion')
   async handleNextQuestion(@ConnectedSocket() client: Socket): Promise<void> {
     const game = await this.gameSessionService.getGame(client.data.code);
-    if (game?.hostId !== client.data.user.id) {
-      client.emit('error', { message: 'Only the host can request the next question' });
+    const userId = client.data.user.id;
+    const isHost = game?.hostId === userId;
+    const isTarget = game?.currentUserTargetId === userId;
+
+    if (!isHost && !isTarget) {
+      client.emit('error', { message: 'Only the host or the current target can request the next question' });
       return;
     }
 

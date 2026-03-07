@@ -197,6 +197,17 @@ export class GameService {
     return saved;
   }
 
+  async findByCode(code: string): Promise<Game | null> {
+    return this.dataSource
+      .createQueryBuilder()
+      .select('game')
+      .from(Game, 'game')
+      .leftJoinAndSelect('game.creator', 'creator')
+      .leftJoinAndSelect('game.modes', 'modes')
+      .where('game.code = :code', { code })
+      .getOne();
+  }
+
   async end(id: string): Promise<Game> {
     const game = await this.dataSource
       .createQueryBuilder()

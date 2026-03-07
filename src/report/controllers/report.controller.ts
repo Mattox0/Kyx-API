@@ -18,6 +18,7 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
+import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 
 @Controller('report')
 export class ReportController {
@@ -31,6 +32,7 @@ export class ReportController {
   }
 
   @Get("")
+  @UseGuards(AdminAuthGuard)
   async findAllReports(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -41,11 +43,13 @@ export class ReportController {
   }
 
   @Get(":id")
+  @UseGuards(AdminAuthGuard)
   async findOneReport(@Param('id') id: string): Promise<Report | null> {
     return this.reportService.findOne(id);
   }
 
   @Put(":id")
+  @UseGuards(AdminAuthGuard)
   async updateReport(
     @Param('id') id: string,
     @Body() dto: UpdateReportDto,
@@ -54,6 +58,7 @@ export class ReportController {
   }
 
   @Delete(":id")
+  @UseGuards(AdminAuthGuard)
   async deleteReport(@Param('id') id: string): Promise<void> {
     return this.reportService.remove(id);
   }

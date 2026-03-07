@@ -4,10 +4,17 @@ import { Friend } from '../entities/friend.entity.js';
 import { RequestFriendDto } from '../dto/request-friend.dto.js';
 import { FriendRequest } from '../entities/friend-request.entity.js';
 import { User } from '../../users/entities/user.entity.js';
+import { GameSessionService } from '../../game/service/game-session.service.js';
+import { GameService } from '../../game/service/game.service.js';
+import { Game } from '../../game/entities/game.entity.js';
 
 @Injectable()
 export class FriendService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly gameSessionService: GameSessionService,
+    private readonly gameService: GameService,
+  ) {}
 
   async createRequest(dto: RequestFriendDto, userId: string) {
     const userRequested = await this.dataSource
@@ -63,7 +70,7 @@ export class FriendService {
     return result.raw[0];
   }
 
-  async findAllFriends(userId: string): Promise<Friend[]> {
+  async findAllFriends(userId: string): Promise<{ id: string; user: User; friend: User; createdAt: Date; currentGame: Game | null }[]> {
     const friends = await this.dataSource
       .createQueryBuilder()
       .select('friend')
@@ -73,12 +80,20 @@ export class FriendService {
       .where('friend.userId = :userId OR friend.friendId = :userId', { userId })
       .getMany();
 
-    return friends.map((f) => {
+    const normalized = friends.map((f) => {
       if (f.friend.id === userId) {
         return { ...f, user: f.friend, friend: f.user } as Friend;
       }
       return f;
     });
+
+    return Promise.all(
+      normalized.map(async (friend) => {
+        const code = await this.gameSessionService.getUserGameCode(friend.friend.id);
+        const currentGame = code ? await this.gameService.findByCode(code) : null;
+        return { ...friend, currentGame };
+      }),
+    );
   }
 
   async findOne(id: string): Promise<Friend | null> {
