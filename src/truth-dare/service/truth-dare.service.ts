@@ -66,6 +66,7 @@ export class TruthDareService {
           gender: dto.gender,
           type: dto.type,
           mode: { id: dto.modeId },
+          mentionedUserGender: dto.mentionedUserGender ?? null,
         })
         .returning('*')
         .execute();
@@ -97,6 +98,10 @@ export class TruthDareService {
 
       if (dto.modeId !== undefined) {
         updateData.mode = { id: dto.modeId } as Mode;
+      }
+
+      if (dto.mentionedUserGender !== undefined) {
+        updateData.mentionedUserGender = dto.mentionedUserGender;
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -157,6 +162,7 @@ export class TruthDareService {
             gender: item.gender,
             type: item.type,
             mode: { id: item.modeId },
+            mentionedUserGender: item.mentionedUserGender ?? null,
           })
           .execute();
         created++;
@@ -174,13 +180,17 @@ export class TruthDareService {
     return { created, skipped, errors };
   }
 
-  async createPartySolo(dto: CreatePartyTruthDareDto): Promise<{ question: TruthDare; userTarget: UserSoloItemDto }[]> {
+  async createPartySolo(dto: CreatePartyTruthDareDto): Promise<{ question: TruthDare; questionType: string; userTarget: UserSoloItemDto; userMentioned: UserSoloItemDto | null }[]> {
     const hasMen = dto.users.some((u) => u.gender === Gender.MAN);
     const hasWomen = dto.users.some((u) => u.gender === Gender.FEMALE);
 
     const allowedGenders: Gender[] = [Gender.ALL];
     if (hasMen) allowedGenders.push(Gender.MAN);
     if (hasWomen) allowedGenders.push(Gender.FEMALE);
+
+    const allowedMentionedGenders: Gender[] = [Gender.ALL];
+    if (hasMen) allowedMentionedGenders.push(Gender.MAN);
+    if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
     const questions = await this.dataSource
       .createQueryBuilder()
@@ -189,6 +199,7 @@ export class TruthDareService {
       .leftJoinAndSelect('truthDare.mode', 'mode')
       .where('truthDare.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
+      .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
       .limit(100)
       .getMany();
@@ -199,12 +210,24 @@ export class TruthDareService {
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
     return questions.map((question) => {
-      const eligibleUsers =
+      const eligibleTargets =
         question.gender === Gender.MAN ? menUsers :
         question.gender === Gender.FEMALE ? womenUsers :
         dto.users;
 
-      return { question, questionType: 'truth-dare' as const, userTarget: pickRandom(eligibleUsers) };
+      const userTarget = pickRandom(eligibleTargets);
+
+      let userMentioned: UserSoloItemDto | null = null;
+      if (question.mentionedUserGender !== null) {
+        const mentionedPool = dto.users.filter((u) => u !== userTarget && (
+          question.mentionedUserGender === Gender.ALL || u.gender === question.mentionedUserGender
+        ));
+        const fallbackPool = dto.users.filter((u) => u !== userTarget);
+        const pool = mentionedPool.length > 0 ? mentionedPool : fallbackPool;
+        userMentioned = pool.length > 0 ? pickRandom(pool) : null;
+      }
+
+      return { question, questionType: 'truth-dare' as const, userTarget, userMentioned };
     });
   }
 }

@@ -29,14 +29,29 @@ export class UserService {
 
     const userIds = users.map((u) => u.id);
 
-    const friendRows: { userId: string; friendId: string }[] = userIds.length
-      ? await this.dataSource
-          .createQueryBuilder()
-          .select(['f.userId', 'f.friendId'])
-          .from(Friend, 'f')
-          .where('f.userId IN (:...ids) OR f.friendId IN (:...ids)', { ids: userIds })
-          .getRawMany()
-      : [];
+    const [friendRows, sessionRows]: [
+      { userId: string; friendId: string }[],
+      { userId: string; lastConnectedAt: Date }[],
+    ] = await Promise.all([
+      userIds.length
+        ? this.dataSource
+            .createQueryBuilder()
+            .select(['f.userId', 'f.friendId'])
+            .from(Friend, 'f')
+            .where('f.userId IN (:...ids) OR f.friendId IN (:...ids)', { ids: userIds })
+            .getRawMany()
+        : Promise.resolve([]),
+      userIds.length
+        ? this.dataSource
+            .createQueryBuilder()
+            .select('s."userId"', 'userId')
+            .addSelect('MAX(s."createdAt")', 'lastConnectedAt')
+            .from('session', 's')
+            .where('s."userId" IN (:...ids)', { ids: userIds })
+            .groupBy('s."userId"')
+            .getRawMany()
+        : Promise.resolve([]),
+    ]);
 
     const countMap = new Map<string, number>();
     for (const row of friendRows) {
@@ -44,9 +59,15 @@ export class UserService {
       countMap.set(row.friendId, (countMap.get(row.friendId) ?? 0) + 1);
     }
 
+    const lastConnectedMap = new Map<string, Date>();
+    for (const row of sessionRows) {
+      lastConnectedMap.set(row.userId, row.lastConnectedAt);
+    }
+
     const data = users.map((user) => ({
       ...user,
       friendCount: countMap.get(user.id) ?? 0,
+      lastConnectedAt: lastConnectedMap.get(user.id) ?? null,
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -61,13 +82,24 @@ export class UserService {
     };
   }
 
-  async findOne(id: string): Promise<User | null> {
-    return this.dataSource
-      .createQueryBuilder()
-      .select('user')
-      .from(User, 'user')
-      .where('user.id = :id', { id })
-      .getOne();
+  async findOne(id: string): Promise<(User & { lastConnectedAt: Date | null }) | null> {
+    const [user, sessionRow] = await Promise.all([
+      this.dataSource
+        .createQueryBuilder()
+        .select('user')
+        .from(User, 'user')
+        .where('user.id = :id', { id })
+        .getOne(),
+      this.dataSource
+        .createQueryBuilder()
+        .select('MAX(s."createdAt")', 'lastConnectedAt')
+        .from('session', 's')
+        .where('s."userId" = :id', { id })
+        .getRawOne(),
+    ]);
+
+    if (!user) return null;
+    return { ...user, lastConnectedAt: sessionRow?.lastConnectedAt ?? null };
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User | null> {

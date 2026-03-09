@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Gender } from '../../../types/enums/Gender.js';
 import { ChallengeType } from '../../../types/enums/TruthDareChallengeType.js';
 
@@ -18,4 +18,8 @@ export class CreateTruthDareDto {
   @IsString()
   @IsNotEmpty()
   modeId: string;
+
+  @IsEnum(Gender)
+  @IsOptional()
+  mentionedUserGender?: Gender;
 }

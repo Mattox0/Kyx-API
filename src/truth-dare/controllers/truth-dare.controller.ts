@@ -18,6 +18,8 @@ import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 import { CreatePartyTruthDareDto, CreatePartyOnlineTruthDareDto } from '../dto/create-party-truth-dare.dto.js';
 import { CreateGameDto } from '../../game/dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
+import { Gender } from '../../../types/enums/Gender.js';
+import { ChallengeType } from '../../../types/enums/TruthDareChallengeType.js';
 import {
   AuthGuard,
   OptionalAuth,

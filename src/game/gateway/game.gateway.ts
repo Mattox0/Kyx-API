@@ -86,6 +86,7 @@ export class GameQuestionWebsocketGateway
         question: game.currentQuestion,
         questionType: game.gameType,
         userTarget: null,
+        userMentioned: null,
         questionNumber: game.previousQuestionsIds.length,
       });
     }
@@ -134,6 +135,12 @@ export class GameQuestionWebsocketGateway
     await this.gameSessionService.clearUserCurrentGame(user.id);
 
     let players = await this.gameSessionService.removePlayer(code, client.id);
+
+    if (players.length === 0) {
+      await this.gameSessionService.cleanupGame(code);
+      console.log(`[Game ${code}] All players left, session cleaned up`);
+      return;
+    }
 
     const game = await this.gameSessionService.getGame(code);
     if (game && game.hostId === user.id && players.length > 0) {

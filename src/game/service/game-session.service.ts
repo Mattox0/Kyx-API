@@ -124,6 +124,21 @@ export class GameSessionService {
     return players.find((p) => p.id === userId) ?? null;
   }
 
+  async cleanupGame(code: string): Promise<void> {
+    const game = await this.getGame(code);
+    if (game) {
+      await this.dataSource
+        .createQueryBuilder()
+        .update(Game)
+        .set({ endedAt: new Date(), code: null })
+        .where('id = :id', { id: game.gameId })
+        .execute();
+    }
+
+    await this.redisService.del(`game:${code}`);
+    await this.redisService.del(`game:${code}:players`);
+  }
+
   async endGame(code: string): Promise<void> {
     const game = await this.getGame(code);
     if (!game) return;
@@ -174,7 +189,7 @@ export class GameSessionService {
     return game;
   }
 
-  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: PlayerSession | null; questionNumber: number } | null> {
+  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: PlayerSession | null; userMentioned: PlayerSession | null; questionNumber: number } | null> {
     const game = await this.getGame(code);
     if (!game) return null;
 
@@ -182,7 +197,18 @@ export class GameSessionService {
 
     if (previousQuestionsIds.length >= 100) return null;
 
-    const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds);
+    let filters: { allowedMentionedGenders?: Gender[] } | undefined;
+    if (gameType === GameType.TRUTH_DARE) {
+      const players = await this.getPlayers(code);
+      const hasMen = players.some((p) => p.gender === Gender.MAN);
+      const hasWomen = players.some((p) => p.gender === Gender.FEMALE);
+      const allowedMentionedGenders: Gender[] = [Gender.ALL];
+      if (hasMen) allowedMentionedGenders.push(Gender.MAN);
+      if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
+      filters = { allowedMentionedGenders };
+    }
+
+    const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds, filters);
     if (!question) return null;
 
     game.previousQuestionsIds = [...previousQuestionsIds, question.entity.id];
@@ -190,24 +216,36 @@ export class GameSessionService {
     await this.resetAnswers(code);
 
     let userTarget: PlayerSession | null = null;
+    let userMentioned: PlayerSession | null = null;
     if (gameType === GameType.TRUTH_DARE) {
       const players = await this.getPlayers(code);
       const truthDare = question.entity as TruthDare;
+
       const eligible = players.filter((player) => truthDare.gender === Gender.ALL || player.gender === truthDare.gender);
-      const pool = eligible.length > 0 ? eligible : players;
-      userTarget = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      const targetPool = eligible.length > 0 ? eligible : players;
+      userTarget = targetPool[Math.floor(Math.random() * targetPool.length)] ?? null;
+
+      if (truthDare.mentionedUserGender !== null) {
+        const mentionedEligible = players.filter((p) => p.id !== userTarget?.id && (
+          truthDare.mentionedUserGender === Gender.ALL || p.gender === truthDare.mentionedUserGender
+        ));
+        const fallbackPool = players.filter((p) => p.id !== userTarget?.id);
+        const mentionedPool = mentionedEligible.length > 0 ? mentionedEligible : fallbackPool;
+        userMentioned = mentionedPool[Math.floor(Math.random() * mentionedPool.length)] ?? null;
+      }
     }
 
     game.currentUserTargetId = userTarget?.id ?? null;
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
 
-    return { question: question.entity, questionType: question.questionType, userTarget, questionNumber: game.previousQuestionsIds.length };
+    return { question: question.entity, questionType: question.questionType, userTarget, userMentioned, questionNumber: game.previousQuestionsIds.length };
   }
 
   private async fetchQuestion(
     gameType: GameType,
     modeIds: string[],
     previousIds: string[],
+    filters?: { allowedMentionedGenders?: Gender[] },
   ): Promise<{ entity: Question; questionType: string } | null> {
     const configs: Record<GameType, { entity: any; alias: string; questionType: string }> = {
       [GameType.NEVER_HAVE]: { entity: NeverHave, alias: 'neverHave', questionType: 'never-have' },
@@ -229,6 +267,13 @@ export class GameSessionService {
 
     if (previousIds.length > 0) {
       qb.andWhere(`${config.alias}.id NOT IN (:...previousIds)`, { previousIds });
+    }
+
+    if (gameType === GameType.TRUTH_DARE && filters?.allowedMentionedGenders) {
+      qb.andWhere(
+        `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
+        { allowedMentionedGenders: filters.allowedMentionedGenders },
+      );
     }
 
     const entity = (await qb.getOne()) as Question | null;

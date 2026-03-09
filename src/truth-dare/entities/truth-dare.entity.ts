@@ -36,6 +36,14 @@ export class TruthDare extends BaseEntity {
   })
   type: ChallengeType;
 
+  @Column({
+    type: 'enum',
+    enum: Gender,
+    nullable: true,
+    default: null,
+  })
+  mentionedUserGender: Gender | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdDate: Date;
 
