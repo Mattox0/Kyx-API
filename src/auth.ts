@@ -11,7 +11,7 @@ export const auth = betterAuth({
   },
   plugins: [expo()],
   trustedOrigins: ["kyx-dev://", "kyx://", 'kyx-dev://*', 'kyx://*'],
-  basePath: '/api/auth',
+  basePath: '/auth',
   database: new Pool({
     host: process.env.POSTGRES_HOST,
     port: Number(process.env.POSTGRES_PORT),
@@ -66,7 +66,7 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      redirectURI: `${process.env.BETTER_AUTH_URL}/api/auth/callback/google`,
+      redirectURI: `${process.env.BETTER_AUTH_URL}/auth/callback/google`,
     },
   },
 });
