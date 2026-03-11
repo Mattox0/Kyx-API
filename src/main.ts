@@ -11,6 +11,7 @@ async function bootstrap() {
       origin: (origin, callback) => {
         const allowedOrigins = [
           process.env.ADMIN_FRONTEND_URL ?? 'http://localhost:3000',
+          'http://localhost:3000',
           'https://appleid.apple.com',
           'https://app-kyx.fr',
         ];

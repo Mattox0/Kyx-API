@@ -189,7 +189,7 @@ export class GameSessionService {
     return game;
   }
 
-  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: PlayerSession | null; userMentioned: PlayerSession | null; questionNumber: number } | null> {
+  async getNextQuestion(code: string): Promise<{ question: Question; questionType: string; userTarget: PlayerSession | null; userMentioned: PlayerSession | null; userMentionedOne: PlayerSession | null; userMentionedTwo: PlayerSession | null; questionNumber: number } | null> {
     const game = await this.getGame(code);
     if (!game) return null;
 
@@ -213,34 +213,36 @@ export class GameSessionService {
 
     let userTarget: PlayerSession | null = null;
     let userMentioned: PlayerSession | null = null;
-    const mentionedUserGender = (question.entity as any).mentionedUserGender as Gender | null;
+    let userMentionedOne: PlayerSession | null = null;
+    let userMentionedTwo: PlayerSession | null = null;
+
+    const pickPlayer = (gender: Gender | null, exclude?: string): PlayerSession | null => {
+      if (gender === null) return null;
+      const eligible = players.filter((p) => p.id !== exclude && (gender === Gender.ALL || p.gender === gender));
+      const pool = eligible.length > 0 ? eligible : players.filter((p) => p.id !== exclude);
+      return pool[Math.floor(Math.random() * pool.length)] ?? null;
+    };
 
     if (gameType === GameType.TRUTH_DARE) {
       const truthDare = question.entity as TruthDare;
       const eligible = players.filter((player) => truthDare.gender === Gender.ALL || player.gender === truthDare.gender);
       const targetPool = eligible.length > 0 ? eligible : players;
       userTarget = targetPool[Math.floor(Math.random() * targetPool.length)] ?? null;
-
-      if (mentionedUserGender !== null) {
-        const mentionedEligible = players.filter((p) => p.id !== userTarget?.id && (
-          mentionedUserGender === Gender.ALL || p.gender === mentionedUserGender
-        ));
-        const fallbackPool = players.filter((p) => p.id !== userTarget?.id);
-        const mentionedPool = mentionedEligible.length > 0 ? mentionedEligible : fallbackPool;
-        userMentioned = mentionedPool[Math.floor(Math.random() * mentionedPool.length)] ?? null;
-      }
-    } else if (mentionedUserGender !== null) {
-      const mentionedEligible = players.filter((p) =>
-        mentionedUserGender === Gender.ALL || p.gender === mentionedUserGender
-      );
-      const pool = mentionedEligible.length > 0 ? mentionedEligible : players;
-      userMentioned = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      const mentionedUserGender = (question.entity as any).mentionedUserGender as Gender | null;
+      userMentioned = pickPlayer(mentionedUserGender, userTarget?.id);
+    } else if (gameType === GameType.PREFER) {
+      const prefer = question.entity as Prefer;
+      userMentionedOne = pickPlayer(prefer.mentionedUserOneGender);
+      userMentionedTwo = pickPlayer(prefer.mentionedUserTwoGender);
+    } else {
+      const mentionedUserGender = (question.entity as any).mentionedUserGender as Gender | null;
+      userMentioned = pickPlayer(mentionedUserGender);
     }
 
     game.currentUserTargetId = userTarget?.id ?? null;
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
 
-    return { question: question.entity, questionType: question.questionType, userTarget, userMentioned, questionNumber: game.previousQuestionsIds.length };
+    return { question: question.entity, questionType: question.questionType, userTarget, userMentioned, userMentionedOne, userMentionedTwo, questionNumber: game.previousQuestionsIds.length };
   }
 
   private async fetchQuestion(
@@ -272,10 +274,20 @@ export class GameSessionService {
     }
 
     if (filters?.allowedMentionedGenders) {
-      qb.andWhere(
-        `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
-        { allowedMentionedGenders: filters.allowedMentionedGenders },
-      );
+      if (gameType === GameType.PREFER) {
+        qb.andWhere(
+          `(${config.alias}.mentionedUserOneGender IS NULL OR ${config.alias}.mentionedUserOneGender IN (:...allowedMentionedGenders))`,
+          { allowedMentionedGenders: filters.allowedMentionedGenders },
+        ).andWhere(
+          `(${config.alias}.mentionedUserTwoGender IS NULL OR ${config.alias}.mentionedUserTwoGender IN (:...allowedMentionedGenders))`,
+          { allowedMentionedGenders: filters.allowedMentionedGenders },
+        );
+      } else {
+        qb.andWhere(
+          `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
+          { allowedMentionedGenders: filters.allowedMentionedGenders },
+        );
+      }
     }
 
     const entity = (await qb.getOne()) as Question | null;

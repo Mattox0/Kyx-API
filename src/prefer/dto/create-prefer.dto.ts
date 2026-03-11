@@ -20,8 +20,13 @@ export class CreatePreferDto {
   @IsNotEmpty()
   modeId: string;
 
-  @ValidateIf((o) => o.mentionedUserGender != null)
+  @ValidateIf((o) => o.mentionedUserOneGender != null)
   @IsEnum(Gender)
   @IsOptional()
-  mentionedUserGender?: Gender | null;
+  mentionedUserOneGender?: Gender | null;
+
+  @ValidateIf((o) => o.mentionedUserTwoGender != null)
+  @IsEnum(Gender)
+  @IsOptional()
+  mentionedUserTwoGender?: Gender | null;
 }

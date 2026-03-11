@@ -89,6 +89,8 @@ export class GameQuestionWebsocketGateway
         questionType: game.gameType,
         userTarget: null,
         userMentioned: null,
+        userMentionedOne: null,
+        userMentionedTwo: null,
         questionNumber: game.previousQuestionsIds.length,
       });
     }
