@@ -43,7 +43,9 @@ import { RedisModule } from './redis/redis.module.js';
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
         entities: [TruthDare, Prefer, NeverHave, Mode, AdminUser, User, Report, Suggestion],
         autoLoadEntities: true,
-        synchronize: true, // remove prod
+        synchronize: false,
+        migrationsRun: true,
+        migrations: ['migrations/*.ts'],
         extra: {
           ssl: configService.getOrThrow('POSTGRES_SSL') === 'true',
         },

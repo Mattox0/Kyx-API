@@ -20,7 +20,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db-pull": "./.github/script/db-pull.sh",
-    "auth:migrate": "better-auth migrate"
+    "auth:migrate": "better-auth migrate",
+    "migration:create": "typeorm migration:create",
+    "migration:generate": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:generate migrations/migration -d src/data-source.ts",
+    "migration:run": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:run -d src/data-source.ts",
+    "migration:revert": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:revert -d src/data-source.ts"
   },
   "dependencies": {
     "@better-auth/expo": "^1.4.20",
