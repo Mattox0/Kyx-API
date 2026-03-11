@@ -197,18 +197,14 @@ export class GameSessionService {
 
     if (previousQuestionsIds.length >= 100) return null;
 
-    let filters: { allowedMentionedGenders?: Gender[] } | undefined;
-    if (gameType === GameType.TRUTH_DARE) {
-      const players = await this.getPlayers(code);
-      const hasMen = players.some((p) => p.gender === Gender.MAN);
-      const hasWomen = players.some((p) => p.gender === Gender.FEMALE);
-      const allowedMentionedGenders: Gender[] = [Gender.ALL];
-      if (hasMen) allowedMentionedGenders.push(Gender.MAN);
-      if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
-      filters = { allowedMentionedGenders };
-    }
+    const players = await this.getPlayers(code);
+    const hasMen = players.some((p) => p.gender === Gender.MAN);
+    const hasWomen = players.some((p) => p.gender === Gender.FEMALE);
+    const allowedMentionedGenders: Gender[] = [Gender.ALL];
+    if (hasMen) allowedMentionedGenders.push(Gender.MAN);
+    if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
-    const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds, filters);
+    const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds, { allowedMentionedGenders });
     if (!question) return null;
 
     game.previousQuestionsIds = [...previousQuestionsIds, question.entity.id];
@@ -217,22 +213,28 @@ export class GameSessionService {
 
     let userTarget: PlayerSession | null = null;
     let userMentioned: PlayerSession | null = null;
-    if (gameType === GameType.TRUTH_DARE) {
-      const players = await this.getPlayers(code);
-      const truthDare = question.entity as TruthDare;
+    const mentionedUserGender = (question.entity as any).mentionedUserGender as Gender | null;
 
+    if (gameType === GameType.TRUTH_DARE) {
+      const truthDare = question.entity as TruthDare;
       const eligible = players.filter((player) => truthDare.gender === Gender.ALL || player.gender === truthDare.gender);
       const targetPool = eligible.length > 0 ? eligible : players;
       userTarget = targetPool[Math.floor(Math.random() * targetPool.length)] ?? null;
 
-      if (truthDare.mentionedUserGender !== null) {
+      if (mentionedUserGender !== null) {
         const mentionedEligible = players.filter((p) => p.id !== userTarget?.id && (
-          truthDare.mentionedUserGender === Gender.ALL || p.gender === truthDare.mentionedUserGender
+          mentionedUserGender === Gender.ALL || p.gender === mentionedUserGender
         ));
         const fallbackPool = players.filter((p) => p.id !== userTarget?.id);
         const mentionedPool = mentionedEligible.length > 0 ? mentionedEligible : fallbackPool;
         userMentioned = mentionedPool[Math.floor(Math.random() * mentionedPool.length)] ?? null;
       }
+    } else if (mentionedUserGender !== null) {
+      const mentionedEligible = players.filter((p) =>
+        mentionedUserGender === Gender.ALL || p.gender === mentionedUserGender
+      );
+      const pool = mentionedEligible.length > 0 ? mentionedEligible : players;
+      userMentioned = pool[Math.floor(Math.random() * pool.length)] ?? null;
     }
 
     game.currentUserTargetId = userTarget?.id ?? null;
@@ -269,7 +271,7 @@ export class GameSessionService {
       qb.andWhere(`${config.alias}.id NOT IN (:...previousIds)`, { previousIds });
     }
 
-    if (gameType === GameType.TRUTH_DARE && filters?.allowedMentionedGenders) {
+    if (filters?.allowedMentionedGenders) {
       qb.andWhere(
         `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
         { allowedMentionedGenders: filters.allowedMentionedGenders },

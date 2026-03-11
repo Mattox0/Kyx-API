@@ -5,7 +5,8 @@ import { ImportNeverHaveItemDto } from '../dto/import-never-have.dto.js';
 import { NeverHave } from '../entities/never-have.entity.js';
 import { UpdateNeverHaveDto } from '../dto/update-never-have.dto.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
-import { CreatePartyNeverHaveDto } from '../dto/create-party-never-have.dto.js';
+import { CreatePartyNeverHaveDto, UserSoloItemDto } from '../dto/create-party-never-have.dto.js';
+import { Gender } from '../../../types/enums/Gender.js';
 
 @Injectable()
 export class NeverHaveService {
@@ -63,6 +64,7 @@ export class NeverHaveService {
         .values({
           question: dto.question,
           mode: { id: dto.modeId },
+          mentionedUserGender: dto.mentionedUserGender ?? null,
         })
         .returning('*')
         .execute();
@@ -86,6 +88,10 @@ export class NeverHaveService {
 
       if (dto.modeId !== undefined) {
         updateData.mode = { id: dto.modeId } as Mode;
+      }
+
+      if (dto.mentionedUserGender !== undefined) {
+        updateData.mentionedUserGender = dto.mentionedUserGender;
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -144,6 +150,7 @@ export class NeverHaveService {
           .values({
             question: item.question,
             mode: { id: item.modeId },
+            mentionedUserGender: (item as any).mentionedUserGender ?? null,
           })
           .execute();
         created++;
@@ -161,17 +168,37 @@ export class NeverHaveService {
     return { created, skipped, errors };
   }
 
-  async createPartySolo(dto: CreatePartyNeverHaveDto): Promise<{ question: NeverHave; userTarget: null }[]> {
+  async createPartySolo(dto: CreatePartyNeverHaveDto): Promise<{ question: NeverHave; questionType: string; userTarget: null; userMentioned: UserSoloItemDto | null }[]> {
+    const hasMen = dto.users.some((u) => u.gender === Gender.MAN);
+    const hasWomen = dto.users.some((u) => u.gender === Gender.FEMALE);
+
+    const allowedMentionedGenders: Gender[] = [Gender.ALL];
+    if (hasMen) allowedMentionedGenders.push(Gender.MAN);
+    if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
+
     const questions = await this.dataSource
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
       .leftJoinAndSelect('neverHave.mode', 'mode')
       .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
+      .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
       .limit(100)
       .getMany();
 
-    return questions.map((question) => ({ question, questionType: 'never-have' as const, userTarget: null }));
+    const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+    return questions.map((question) => {
+      let userMentioned: UserSoloItemDto | null = null;
+      if (question.mentionedUserGender !== null) {
+        const mentionedPool = dto.users.filter((u) =>
+          question.mentionedUserGender === Gender.ALL || u.gender === question.mentionedUserGender
+        );
+        const pool = mentionedPool.length > 0 ? mentionedPool : dto.users;
+        userMentioned = pool.length > 0 ? pickRandom(pool) : null;
+      }
+      return { question, questionType: 'never-have' as const, userTarget: null, userMentioned };
+    });
   }
 }

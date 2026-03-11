@@ -6,6 +6,11 @@ import { GameType } from '../../../types/enums/GameType.js';
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
+  @Get('stats/active')
+  async getActiveGamesCount() {
+    return this.gameService.getActiveGamesCount();
+  }
+
   @Get('stats/state')
   async getStats() {
     return this.gameService.getStats();

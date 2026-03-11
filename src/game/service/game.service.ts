@@ -40,6 +40,16 @@ export class GameService {
     ];
   }
 
+  async getActiveGamesCount(): Promise<{ amount: number }> {
+    const amount = await this.dataSource
+      .createQueryBuilder()
+      .from(Game, 'game')
+      .where('game.endedAt IS NULL')
+      .getCount();
+
+    return { amount };
+  }
+
   async getStatsHistory(period: 'weekly' | 'monthly' | 'yearly') {
     const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
     const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
