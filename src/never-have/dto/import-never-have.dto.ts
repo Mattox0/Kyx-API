@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Gender } from '../../../types/enums/Gender.js';
 
 export class ImportNeverHaveItemDto {
   @IsString()
@@ -9,6 +10,10 @@ export class ImportNeverHaveItemDto {
   @IsString()
   @IsNotEmpty()
   modeId: string;
+
+  @IsEnum(Gender)
+  @IsOptional()
+  mentionedUserGender?: Gender;
 }
 
 export class ImportNeverHaveDto {

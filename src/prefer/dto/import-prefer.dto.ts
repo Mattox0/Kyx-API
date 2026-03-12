@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Gender } from '../../../types/enums/Gender.js';
 
 export class ImportPreferItemDto {
   @IsString()
@@ -13,6 +14,14 @@ export class ImportPreferItemDto {
   @IsString()
   @IsNotEmpty()
   modeId: string;
+
+  @IsEnum(Gender)
+  @IsOptional()
+  mentionedUserOneGender?: Gender;
+
+  @IsEnum(Gender)
+  @IsOptional()
+  mentionedUserTwoGender?: Gender;
 }
 
 export class ImportPreferDto {
