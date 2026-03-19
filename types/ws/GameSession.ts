@@ -15,4 +15,5 @@ export interface GameSession {
   previousQuestionsIds: string[],
   currentQuestion: Question | null;
   currentUserTargetId: string | null;
+  currentUserMentionedId: string | null;
 }

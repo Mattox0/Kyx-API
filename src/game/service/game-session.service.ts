@@ -176,6 +176,7 @@ export class GameSessionService {
       previousQuestionsIds: [],
       currentQuestion: null,
       currentUserTargetId: null,
+      currentUserMentionedId: null,
     };
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(resetSession));
     await this.resetAnswers(code);
@@ -195,7 +196,7 @@ export class GameSessionService {
 
     const { gameType, modeIds, previousQuestionsIds } = game;
 
-    if (previousQuestionsIds.length >= 100) return null;
+    if (previousQuestionsIds.length >= 50) return null;
 
     const players = await this.getPlayers(code);
     const hasMen = players.some((p) => p.gender === Gender.MAN);
@@ -230,13 +231,16 @@ export class GameSessionService {
       userMentioned = pickPlayer(mentionedUserGender, userTarget?.id);
     } else if (gameType === GameType.PREFER) {
       const prefer = question.entity as Prefer;
-      userMentioned = pickPlayer(prefer.mentionedUserGender);
+      const hasUserPlaceholder = prefer.choiceOne.includes('{user}') || prefer.choiceTwo.includes('{user}');
+      const genderToUse = prefer.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
+      userMentioned = pickPlayer(genderToUse);
     } else {
       const mentionedUserGender = (question.entity as any).mentionedUserGender as Gender | null;
       userMentioned = pickPlayer(mentionedUserGender);
     }
 
     game.currentUserTargetId = userTarget?.id ?? null;
+    game.currentUserMentionedId = userMentioned?.id ?? null;
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
 
     return { question: question.entity, questionType: question.questionType, userTarget, userMentioned, questionNumber: game.previousQuestionsIds.length };

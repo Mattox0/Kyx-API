@@ -190,7 +190,7 @@ export class PreferService {
       .where('prefer.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('(prefer.mentionedUserGender IS NULL OR prefer.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(100)
+      .limit(50)
       .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -202,11 +202,15 @@ export class PreferService {
       return finalPool.length > 0 ? pickRandom(finalPool) : null;
     };
 
-    return questions.map((question) => ({
-      question,
-      questionType: 'prefer' as const,
-      userTarget: null,
-      userMentioned: pickUser(question.mentionedUserGender),
-    }));
+    return questions.map((question) => {
+      const hasUserPlaceholder = question.choiceOne.includes('{user}') || question.choiceTwo.includes('{user}');
+      const genderToUse = question.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
+      return {
+        question,
+        questionType: 'prefer' as const,
+        userTarget: null,
+        userMentioned: pickUser(genderToUse),
+      };
+    });
   }
 }

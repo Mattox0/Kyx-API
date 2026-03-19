@@ -201,7 +201,7 @@ export class TruthDareService {
       .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
       .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(100)
+      .limit(50)
       .getMany();
 
     const menUsers = dto.users.filter((u) => u.gender === Gender.MAN);

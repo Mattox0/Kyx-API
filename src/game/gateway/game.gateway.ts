@@ -84,11 +84,18 @@ export class GameQuestionWebsocketGateway
     this.server.to(client.id).emit('game', game);
 
     if (game.currentQuestion) {
+      const allPlayers = await this.gameSessionService.getPlayers(code);
+      const currentUserTarget = game.currentUserTargetId
+        ? allPlayers.find((p) => p.id === game.currentUserTargetId) ?? null
+        : null;
+      const currentUserMentioned = game.currentUserMentionedId
+        ? allPlayers.find((p) => p.id === game.currentUserMentionedId) ?? null
+        : null;
       this.server.to(client.id).emit('currentQuestion', {
         question: game.currentQuestion,
         questionType: game.gameType,
-        userTarget: null,
-        userMentioned: null,
+        userTarget: currentUserTarget,
+        userMentioned: currentUserMentioned,
         questionNumber: game.previousQuestionsIds.length,
       });
     }

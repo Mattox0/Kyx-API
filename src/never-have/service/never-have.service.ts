@@ -184,7 +184,7 @@ export class NeverHaveService {
       .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(100)
+      .limit(50)
       .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
