@@ -145,7 +145,9 @@ export class GameQuestionWebsocketGateway
 
     let players = await this.gameSessionService.removePlayer(code, client.id);
 
-    if (players.length === 0) {
+    const roomSize = (this.server as unknown as Namespace).adapter.rooms?.get(`game:${code}`)?.size ?? 0;
+
+    if (roomSize === 0) {
       await this.gameSessionService.cleanupGame(code);
       console.log(`[Game ${code}] All players left, session cleaned up`);
       return;

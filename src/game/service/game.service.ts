@@ -44,7 +44,7 @@ export class GameService {
     const amount = await this.dataSource
       .createQueryBuilder()
       .from(Game, 'game')
-      .where('game.endedAt IS NULL')
+      .where('game.endedAt IS NULL AND game.code IS NOT NULL')
       .getCount();
 
     return { amount };
