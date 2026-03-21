@@ -122,6 +122,15 @@ export class UserService {
     return this.findOne(id);
   }
 
+  async addCoins(id: string, amount: number): Promise<void> {
+    await this.dataSource
+      .createQueryBuilder()
+      .update(User)
+      .set({ coins: () => `coins + ${amount}` })
+      .where('id = :id', { id })
+      .execute();
+  }
+
   async remove(id: string): Promise<void> {
     await this.dataSource
       .createQueryBuilder()

@@ -83,6 +83,13 @@ export const auth = betterAuth({
         required: false,
         returned: true,
       },
+      coins: {
+        type: 'number',
+        required: false,
+        returned: true,
+        input: true,
+        defaultValue: 0,
+      },
     },
   },
   session: {

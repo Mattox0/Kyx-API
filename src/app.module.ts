@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerMiddleware } from './common/middleware/logger.middleware.js';
 import { ModeExistsConstraint } from './common/validators/mode-exists.validator.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -44,14 +45,13 @@ import { RedisModule } from './redis/redis.module.js';
         entities: [TruthDare, Prefer, NeverHave, Mode, AdminUser, User, Report, Suggestion],
         autoLoadEntities: true,
         synchronize: false,
-        migrationsRun: true,
-        migrations: [process.env.NODE_ENV === 'production' ? 'dist/migrations/*.js' : 'migrations/*.ts'],
         extra: {
           ssl: configService.getOrThrow('POSTGRES_SSL') === 'true',
         },
       }),
       inject: [ConfigService],
     } as TypeOrmModuleAsyncOptions),
+    ScheduleModule.forRoot(),
     AuthModule.forRoot({ auth, disableGlobalAuthGuard: true }),
     TruthDareModule,
     NeverHaveModule,

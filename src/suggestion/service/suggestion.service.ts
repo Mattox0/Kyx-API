@@ -4,6 +4,7 @@ import { Suggestion } from '../entities/suggestion.entity.js';
 import { CreateSuggestionDto } from '../dto/create-suggestion.dto.js';
 import { UpdateSuggestionDto } from '../dto/update-suggestion.dto.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
+import { User } from '../../users/entities/user.entity.js';
 
 @Injectable()
 export class SuggestionService {
@@ -81,6 +82,26 @@ export class SuggestionService {
   async update(id: string, dto: UpdateSuggestionDto): Promise<Suggestion | null> {
     const { modeId, ...rest } = dto;
     try {
+      if (dto.resolved === true) {
+        const existing = await this.dataSource
+          .createQueryBuilder()
+          .select('suggestion')
+          .from(Suggestion, 'suggestion')
+          .leftJoinAndSelect('suggestion.user', 'user')
+          .where('suggestion.id = :id', { id })
+          .andWhere('suggestion.resolved = false')
+          .getOne();
+
+        if (existing?.user?.id) {
+          await this.dataSource
+            .createQueryBuilder()
+            .update(User)
+            .set({ coins: () => 'coins + 25' })
+            .where('id = :id', { id: existing.user.id })
+            .execute();
+        }
+      }
+
       await this.dataSource
         .createQueryBuilder()
         .update(Suggestion)

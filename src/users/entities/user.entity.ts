@@ -9,7 +9,6 @@ import {
 import { Report } from '../../report/entities/report.entity.js';
 import { Suggestion } from '../../suggestion/entities/suggestion.entity.js';
 import { Gender } from '../../../types/enums/Gender.js';
-import { Friend } from '../../friend/entities/friend.entity.js';
 
 @Entity('user')
 export class User {
@@ -38,6 +37,9 @@ export class User {
 
   @Column({ type: 'varchar', length: 6, unique: true, nullable: true })
   friendCode?: string;
+
+  @Column({ type: 'integer', default: 0 })
+  coins: number;
 
   @CreateDateColumn()
   createdAt: Date;

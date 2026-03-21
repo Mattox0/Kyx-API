@@ -4,9 +4,11 @@ import {
   Delete,
   Get,
   Param,
+  Post,
   Put,
   Query,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { type Request } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
@@ -27,6 +29,15 @@ export class UserController {
     return session?.user ?? null;
   }
 
+  @Post('me/coins/add')
+  async addCoins(@Req() req: Request, @Body() body: { amount: number }): Promise<void> {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    if (!session?.user) throw new UnauthorizedException();
+    await this.userService.addCoins(session.user.id, body.amount);
+  }
+
   @Get('')
   async findAll(
     @Query('page') page?: string,
@@ -40,6 +51,8 @@ export class UserController {
   async findOne(@Param('id') id: string): Promise<User | null> {
     return this.userService.findOne(id);
   }
+
+  @Post(':id')
 
   @Put(':id')
   async update(
