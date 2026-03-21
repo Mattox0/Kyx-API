@@ -15,7 +15,8 @@ export class SuggestionService {
       .createQueryBuilder()
       .select('suggestion')
       .from(Suggestion, 'suggestion')
-      .leftJoinAndSelect('suggestion.mode', 'mode');
+      .leftJoinAndSelect('suggestion.mode', 'mode')
+      .leftJoinAndSelect('suggestion.user', 'user');
 
     if (resolved) {
       qb.where('suggestion.resolved = :resolved', { resolved: resolved });
@@ -52,6 +53,7 @@ export class SuggestionService {
       .select('suggestion')
       .from(Suggestion, 'suggestion')
       .leftJoinAndSelect('suggestion.mode', 'mode')
+      .leftJoinAndSelect('suggestion.user', 'user')
       .where('suggestion.id = :id', { id })
       .getOne();
   }
