@@ -8,6 +8,32 @@ import { Friend } from '../../friend/entities/friend.entity.js';
 export class UserService {
   constructor(private readonly dataSource: DataSource) {}
 
+  async checkEmailAvailable(email: string): Promise<boolean> {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('1')
+      .from(User, 'user')
+      .where('LOWER(user.email) = LOWER(:email)', { email })
+      .getRawOne();
+    return !result;
+  }
+
+  async checkNameAvailable(name: string, excludeId?: string): Promise<boolean> {
+    const qb = this.dataSource
+      .createQueryBuilder()
+      .select('1')
+      .from(User, 'user')
+      .where('LOWER(user.name) = LOWER(:name)', { name })
+      .andWhere('user.name IS NOT NULL');
+
+    if (excludeId) {
+      qb.andWhere('user.id != :excludeId', { excludeId });
+    }
+
+    const result = await qb.getRawOne();
+    return !result;
+  }
+
   async findAll(page: number, limit: number, search?: string) {
     const qb = this.dataSource
       .createQueryBuilder()

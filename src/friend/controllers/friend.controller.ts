@@ -53,8 +53,6 @@ export class FriendController {
     if (!friendRequest) {
       throw new NotFoundException(`Request not found`);
     }
-    console.log(friendRequest);
-    console.log(session.user.id);
     if (friendRequest.userRequested.id !== session.user.id) {
       throw new BadRequestException(`You can't accept this request`);
     }

@@ -47,6 +47,21 @@ export class UserController {
     return this.userService.findAll(+(page ?? 1), +(limit ?? 50), search);
   }
 
+  @Get('check-email')
+  async checkEmail(@Query('email') email: string) {
+    const available = await this.userService.checkEmailAvailable(email);
+    return { available };
+  }
+
+  @Get('check-name')
+  async checkName(
+    @Query('name') name: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    const available = await this.userService.checkNameAvailable(name, excludeId);
+    return { available };
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<User | null> {
     return this.userService.findOne(id);
