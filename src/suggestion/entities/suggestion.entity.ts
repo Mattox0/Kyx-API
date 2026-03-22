@@ -19,8 +19,11 @@ export class Suggestion extends BaseEntity {
   @Column({ type: 'varchar' })
   content: string;
 
-  @Column({ type: 'boolean', default: false })
-  resolved: boolean;
+  @Column({ type: 'varchar', default: 'pending' })
+  status: 'pending' | 'accepted' | 'refused';
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  adminComment: string | null;
 
   @ManyToOne(() => Mode, { onDelete: 'CASCADE' })
   mode: Relation<Mode>;

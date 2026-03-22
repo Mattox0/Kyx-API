@@ -1,9 +1,13 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateSuggestionDto } from './create-suggestion.dto.js';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class UpdateSuggestionDto extends PartialType(CreateSuggestionDto) {
   @IsOptional()
-  @IsBoolean()
-  resolved: boolean;
+  @IsIn(['pending', 'accepted', 'refused'])
+  status: 'pending' | 'accepted' | 'refused';
+
+  @IsOptional()
+  @IsString()
+  adminComment: string | null;
 }

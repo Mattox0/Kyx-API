@@ -31,15 +31,21 @@ export class SuggestionController {
     return this.suggestionService.create(dto, session?.user?.id);
   }
 
+  @Get('my')
+  @UseGuards(AuthGuard)
+  async findMySuggestions(@Session() session: UserSession): Promise<Suggestion[]> {
+    return this.suggestionService.findByUser(session.user.id);
+  }
+
   @Get()
   @UseGuards(AdminAuthGuard)
   async findAllSuggestions(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('resolved') resolved?: string,
+    @Query('status') status?: string,
     @Query('search') search?: string,
   ) {
-    return this.suggestionService.findAll(+(page ?? 1), +(limit ?? 50), resolved, search);
+    return this.suggestionService.findAll(+(page ?? 1), +(limit ?? 50), status, search);
   }
 
   @Get(':id')

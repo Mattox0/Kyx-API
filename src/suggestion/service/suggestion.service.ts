@@ -10,7 +10,7 @@ import { User } from '../../users/entities/user.entity.js';
 export class SuggestionService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async findAll(page: number, limit: number, resolved?: string, search?: string) {
+  async findAll(page: number, limit: number, status?: string, search?: string) {
     const qb = this.dataSource
       .createQueryBuilder()
       .select('suggestion')
@@ -18,13 +18,13 @@ export class SuggestionService {
       .leftJoinAndSelect('suggestion.mode', 'mode')
       .leftJoinAndSelect('suggestion.user', 'user');
 
-    if (resolved) {
-      qb.where('suggestion.resolved = :resolved', { resolved: resolved });
+    if (status) {
+      qb.where('suggestion.status = :status', { status });
     }
 
     if (search) {
       qb.andWhere(
-        '(suggestion.question ILIKE :search OR CAST(suggestion.id AS TEXT) ILIKE :search)',
+        '(suggestion.content ILIKE :search OR CAST(suggestion.id AS TEXT) ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -45,6 +45,17 @@ export class SuggestionService {
       hasPreviousPage: page > 1,
       hasNextPage: page < totalPages,
     };
+  }
+
+  async findByUser(userId: string): Promise<Suggestion[]> {
+    return this.dataSource
+      .createQueryBuilder()
+      .select('suggestion')
+      .from(Suggestion, 'suggestion')
+      .leftJoinAndSelect('suggestion.mode', 'mode')
+      .where('suggestion.userId = :userId', { userId })
+      .orderBy('suggestion.createdAt', 'DESC')
+      .getMany();
   }
 
   async findOne(id: string): Promise<Suggestion | null> {
@@ -84,14 +95,14 @@ export class SuggestionService {
   async update(id: string, dto: UpdateSuggestionDto): Promise<Suggestion | null> {
     const { modeId, ...rest } = dto;
     try {
-      if (dto.resolved === true) {
+      if (dto.status === 'accepted') {
         const existing = await this.dataSource
           .createQueryBuilder()
           .select('suggestion')
           .from(Suggestion, 'suggestion')
           .leftJoinAndSelect('suggestion.user', 'user')
           .where('suggestion.id = :id', { id })
-          .andWhere('suggestion.resolved = false')
+          .andWhere('suggestion.status = :status', { status: 'pending' })
           .getOne();
 
         if (existing?.user?.id) {
