@@ -71,7 +71,6 @@ export class GameQuestionWebsocketGateway
       isHost: game.hostId === session.user.id,
       gender: session.user.gender as Gender,
       avatarOptions: session.user.avatarOptions as AvatarOptions,
-      friendCode: session.user.friendCode as string,
       hasAnswered: false,
       answer: null,
     });

@@ -16,7 +16,6 @@ export interface PlayerSession {
   socketId: string;
   isHost: boolean;
   avatarOptions?: AvatarOptions;
-  friendCode: string;
   gender: Gender;
   hasAnswered: boolean;
   answer: string | null;

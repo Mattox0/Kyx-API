@@ -21,7 +21,7 @@ export class FriendService {
       .createQueryBuilder()
       .select('user')
       .from(User, 'user')
-      .where('user.friendCode = :friendCode', { friendCode: dto.friendCode })
+      .where('LOWER(user.name) = LOWER(:name)', { name: dto.name })
       .getOne();
 
     if (!userRequested) {

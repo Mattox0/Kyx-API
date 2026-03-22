@@ -15,7 +15,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   name?: string;
 
   @Column({ type: 'varchar', unique: true })
@@ -34,9 +34,6 @@ export class User {
 
   @Column({ type: 'jsonb', nullable: true })
   avatarOptions?: Record<string, unknown>;
-
-  @Column({ type: 'varchar', length: 6, unique: true, nullable: true })
-  friendCode?: string;
 
   @Column({ type: 'integer', default: 0 })
   coins: number;
