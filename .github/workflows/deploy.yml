@@ -39,6 +39,9 @@ jobs:
             yarn
             yarn run build
 
+            echo "▶ Migrations..."
+            yarn migration:run
+
             echo "▶ Redémarrage PM2..."
             pm2 restart $PM2_APP --update-env
 

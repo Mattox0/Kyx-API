@@ -31,6 +31,18 @@ export class GameController {
     return this.gameService.getStatsByMode(gameType);
   }
 
+  @Get('stats/creators')
+  async getStatsByCreator(
+    @Query('days') days: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    const d = parseInt(days, 10);
+    const validDays = ([1, 3, 7, 30] as const).includes(d as 1 | 3 | 7 | 30) ? (d as 1 | 3 | 7 | 30) : null;
+    return this.gameService.getStatsByCreator(validDays, +(page ?? 1), +(limit ?? 20), search);
+  }
+
   @Get('')
   async findAll(
     @Query('page') page?: string,

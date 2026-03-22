@@ -130,6 +130,81 @@ export class GameService {
     return rows.map((r) => ({ name: r.gameType, amount: parseInt(r.count, 10) }));
   }
 
+  async getStatsByCreator(
+    days: 1 | 3 | 7 | 30 | null,
+    page: number,
+    limit: number,
+    search?: string,
+  ) {
+    const dataQb = this.dataSource
+      .createQueryBuilder()
+      .select('creator.id', 'creatorId')
+      .addSelect('creator.name', 'name')
+      .addSelect('creator.email', 'email')
+      .addSelect('COUNT(game.id)', 'count')
+      .from(Game, 'game')
+      .leftJoin('game.creator', 'creator');
+
+    if (days !== null) {
+      dataQb.where(`game.startedAt >= NOW() - INTERVAL '${days} days'`);
+    }
+    if (search) {
+      const cond = '(creator.name ILIKE :search OR creator.email ILIKE :search)';
+      days !== null ? dataQb.andWhere(cond, { search: `%${search}%` }) : dataQb.where(cond, { search: `%${search}%` });
+    }
+
+    dataQb
+      .groupBy('creator.id')
+      .addGroupBy('creator.name')
+      .addGroupBy('creator.email')
+      .orderBy('count', 'DESC')
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    const countQb = this.dataSource
+      .createQueryBuilder()
+      .select('creator.id')
+      .from(Game, 'game')
+      .leftJoin('game.creator', 'creator');
+
+    if (days !== null) {
+      countQb.where(`game.startedAt >= NOW() - INTERVAL '${days} days'`);
+    }
+    if (search) {
+      const cond = '(creator.name ILIKE :search OR creator.email ILIKE :search)';
+      days !== null ? countQb.andWhere(cond, { search: `%${search}%` }) : countQb.where(cond, { search: `%${search}%` });
+    }
+    countQb.groupBy('creator.id').addGroupBy('creator.name').addGroupBy('creator.email');
+
+    const [rows, countResult]: [
+      { creatorId: string | null; name: string | null; email: string | null; count: string }[],
+      { total: string },
+    ] = await Promise.all([
+      dataQb.getRawMany(),
+      this.dataSource
+        .createQueryBuilder()
+        .select('COUNT(*)', 'total')
+        .from(`(${countQb.getQuery()})`, 'sub')
+        .setParameters(countQb.getParameters())
+        .getRawOne(),
+    ]);
+
+    const total = parseInt(countResult?.total ?? '0', 10);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: rows.map((r) => ({
+        count: parseInt(r.count, 10),
+        creator: r.creatorId ? { id: r.creatorId, name: r.name, email: r.email } : null,
+      })),
+      total,
+      page,
+      totalPages,
+      hasPreviousPage: page > 1,
+      hasNextPage: page < totalPages,
+    };
+  }
+
   async findAll(page: number, limit: number, search?: string) {
     const qb = this.dataSource
       .createQueryBuilder()
