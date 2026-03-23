@@ -13,9 +13,9 @@ export class GameSchedulerService {
       .createQueryBuilder()
       .update(Game)
       .set({ endedAt: () => 'NOW()' })
-      .where('game.isLocal = true')
-      .andWhere('game.endedAt IS NULL')
-      .andWhere("game.startedAt < NOW() - INTERVAL '6 hours'")
+      .where('"isLocal" = true')
+      .andWhere('"endedAt" IS NULL')
+      .andWhere("\"startedAt\" < NOW() - INTERVAL '6 hours'")
       .execute();
   }
 }
