@@ -26,6 +26,7 @@ import { UserModule } from './users/user.module.js';
 import { FriendModule } from './friend/friend.module.js';
 import { GameModule } from './game/game.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { RevenueCatModule } from './revenuecat/revenuecat.module.js';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { RedisModule } from './redis/redis.module.js';
     FriendModule,
     GameModule,
     RedisModule,
+    RevenueCatModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],

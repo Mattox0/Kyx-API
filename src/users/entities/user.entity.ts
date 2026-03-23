@@ -38,6 +38,9 @@ export class User {
   @Column({ type: 'integer', default: 0 })
   coins: number;
 
+  @Column({ type: 'boolean', default: false })
+  isPremium: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
