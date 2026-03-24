@@ -5,8 +5,12 @@ import {
   HttpCode,
   Logger,
   Post,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
+import { type Request } from 'express';
+import { fromNodeHeaders } from 'better-auth/node';
+import { auth } from '../auth.js';
 import { ConfigService } from '@nestjs/config';
 import { RevenueCatService } from './revenuecat.service.js';
 
@@ -28,6 +32,14 @@ export class RevenueCatController {
     private readonly revenueCatService: RevenueCatService,
     private readonly configService: ConfigService,
   ) {}
+
+  @Post('sync-premium')
+  @HttpCode(200)
+  async syncPremium(@Req() req: Request): Promise<void> {
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+    if (!session?.user) throw new UnauthorizedException();
+    await this.revenueCatService.syncPremium(session.user.id);
+  }
 
   @Post('webhook')
   @HttpCode(200)
@@ -52,7 +64,7 @@ export class RevenueCatController {
         break;
 
       case 'TRANSFER':
-        if (event.transferred_to?.[0]) {
+        if (event.transferred_to?.[0] && !event.transferred_to[0].startsWith('$RCAnonymousID')) {
           await this.revenueCatService.setPremium(event.transferred_to[0], true);
         }
         break;
