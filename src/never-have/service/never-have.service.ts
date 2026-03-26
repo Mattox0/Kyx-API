@@ -177,7 +177,10 @@ export class NeverHaveService {
     if (hasMen) allowedMentionedGenders.push(Gender.MAN);
     if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
-    const questions = await this.dataSource
+    const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'never-have').length;
+    const dbLimit = Math.max(0, 50 - customCount);
+
+    const questions = dbLimit === 0 ? [] : await this.dataSource
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
@@ -185,7 +188,7 @@ export class NeverHaveService {
       .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(50)
+      .limit(dbLimit)
       .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];

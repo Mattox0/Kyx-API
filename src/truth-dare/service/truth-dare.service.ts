@@ -193,7 +193,10 @@ export class TruthDareService {
     if (hasMen) allowedMentionedGenders.push(Gender.MAN);
     if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
-    const questions = await this.dataSource
+    const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'truth-dare').length;
+    const dbLimit = Math.max(0, 50 - customCount);
+
+    const questions = dbLimit === 0 ? [] : await this.dataSource
       .createQueryBuilder()
       .select('truthDare')
       .from(TruthDare, 'truthDare')
@@ -202,7 +205,7 @@ export class TruthDareService {
       .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
       .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(50)
+      .limit(dbLimit)
       .getMany();
 
     const menUsers = dto.users.filter((u) => u.gender === Gender.MAN);

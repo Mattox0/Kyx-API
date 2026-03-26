@@ -183,7 +183,10 @@ export class PreferService {
     if (hasMen) allowedMentionedGenders.push(Gender.MAN);
     if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
-    const questions = await this.dataSource
+    const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'prefer').length;
+    const dbLimit = Math.max(0, 50 - customCount);
+
+    const questions = dbLimit === 0 ? [] : await this.dataSource
       .createQueryBuilder()
       .select('prefer')
       .from(Prefer, 'prefer')
@@ -191,7 +194,7 @@ export class PreferService {
       .where('prefer.modeId IN (:...modeIds)', { modeIds: dto.modes })
       .andWhere('(prefer.mentionedUserGender IS NULL OR prefer.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
       .orderBy('RANDOM()')
-      .limit(50)
+      .limit(dbLimit)
       .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
