@@ -55,23 +55,26 @@ export class RevenueCatController {
     const { event } = body;
     this.logger.log(`RevenueCat event: ${event.type} for ${event.app_user_id}`);
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isValidUserId = (id: string) => !id.startsWith('$RCAnonymousID') && uuidRegex.test(id);
+
     switch (event.type) {
       case 'INITIAL_PURCHASE':
       case 'RENEWAL':
-        if (!event.app_user_id.startsWith('$RCAnonymousID')) {
+        if (isValidUserId(event.app_user_id)) {
           await this.revenueCatService.setPremium(event.app_user_id, true);
         }
         break;
 
       case 'TRANSFER':
-        if (event.transferred_to?.[0] && !event.transferred_to[0].startsWith('$RCAnonymousID')) {
+        if (event.transferred_to?.[0] && isValidUserId(event.transferred_to[0])) {
           await this.revenueCatService.setPremium(event.transferred_to[0], true);
         }
         break;
 
       case 'EXPIRATION':
       case 'CANCELLATION':
-        if (!event.app_user_id.startsWith('$RCAnonymousID')) {
+        if (isValidUserId(event.app_user_id)) {
           await this.revenueCatService.setPremium(event.app_user_id, false);
         }
         break;
