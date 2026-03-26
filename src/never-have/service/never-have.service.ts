@@ -7,6 +7,7 @@ import { UpdateNeverHaveDto } from '../dto/update-never-have.dto.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
 import { CreatePartyNeverHaveDto, UserSoloItemDto } from '../dto/create-party-never-have.dto.js';
 import { Gender } from '../../../types/enums/Gender.js';
+import { shuffle } from '../../common/utils/shuffle.js';
 
 @Injectable()
 export class NeverHaveService {
@@ -189,7 +190,7 @@ export class NeverHaveService {
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    return questions.map((question) => {
+    const mapped = questions.map((question) => {
       let userMentioned: UserSoloItemDto | null = null;
       if (question.mentionedUserGender !== null) {
         const mentionedPool = dto.users.filter((u) =>
@@ -200,5 +201,22 @@ export class NeverHaveService {
       }
       return { question, questionType: 'never-have' as const, userTarget: null, userMentioned };
     });
+
+    const customMapped = (dto.customQuestions ?? [])
+      .filter((cq) => cq.type === 'never-have')
+      .map((cq) => {
+        const fakeQuestion = {
+          id: crypto.randomUUID(),
+          question: cq.question!,
+          mentionedUserGender: null,
+          mode: null,
+          createdDate: new Date(),
+          updatedDate: new Date(),
+        } as unknown as NeverHave;
+
+        return { question: fakeQuestion, questionType: 'never-have' as const, userTarget: null, userMentioned: null };
+      });
+
+    return shuffle([...mapped, ...customMapped]);
   }
 }

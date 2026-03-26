@@ -6,6 +6,11 @@ import { TruthDare } from '../../src/truth-dare/entities/truth-dare.entity.js';
 
 export type Question = NeverHave | Prefer | TruthDare
 
+export interface CustomQuestionEntry {
+  entity: Question;
+  questionType: string;
+}
+
 export interface GameSession {
   gameId: string,
   gameType: GameType,
@@ -16,4 +21,6 @@ export interface GameSession {
   currentQuestion: Question | null;
   currentUserTargetId: string | null;
   currentUserMentionedId: string | null;
+  customQuestionsPool: CustomQuestionEntry[];
+  remainingCustomQuestions: CustomQuestionEntry[];
 }

@@ -10,6 +10,7 @@ import {
 import { Type } from 'class-transformer';
 import { Gender } from '../../../types/enums/Gender.js';
 import { ModeExistsConstraint } from '../../common/validators/mode-exists.validator.js';
+import { CustomQuestionDto } from '../../common/dto/custom-question.dto.js';
 
 export class UserSoloItemDto {
   @IsString()
@@ -31,6 +32,12 @@ export class CreatePartyOnlineNeverHaveDto {
   @IsNotEmpty({ each: true })
   @Validate(ModeExistsConstraint, { each: true })
   modes: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CustomQuestionDto)
+  customQuestions?: CustomQuestionDto[];
 }
 
 export class CreatePartyNeverHaveDto {
@@ -44,4 +51,10 @@ export class CreatePartyNeverHaveDto {
   @IsNotEmpty({ each: true })
   @Validate(ModeExistsConstraint, { each: true })
   modes: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CustomQuestionDto)
+  customQuestions?: CustomQuestionDto[];
 }

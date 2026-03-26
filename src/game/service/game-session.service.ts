@@ -3,7 +3,8 @@ import { DataSource } from 'typeorm';
 import { RedisService } from '../../redis/redis.service.js';
 import { PlayerSession } from '../../../types/ws/PlayerSession.js';
 import { GameStatus } from '../../../types/ws/GameStatus.js';
-import { GameSession, Question } from '../../../types/ws/GameSession.js';
+import { GameSession, Question, CustomQuestionEntry } from '../../../types/ws/GameSession.js';
+import { shuffle } from '../../common/utils/shuffle.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import { Gender } from '../../../types/enums/Gender.js';
 import { NeverHave } from '../../never-have/entities/never-have.entity.js';
@@ -167,6 +168,7 @@ export class GameSessionService {
     });
     const saved = await this.dataSource.manager.save(newGame);
 
+    const customQuestionsPool = game.customQuestionsPool ?? [];
     const resetSession: GameSession = {
       gameId: saved.id,
       gameType: game.gameType,
@@ -177,6 +179,8 @@ export class GameSessionService {
       currentQuestion: null,
       currentUserTargetId: null,
       currentUserMentionedId: null,
+      customQuestionsPool,
+      remainingCustomQuestions: shuffle([...customQuestionsPool]),
     };
     await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(resetSession));
     await this.resetAnswers(code);
@@ -205,8 +209,20 @@ export class GameSessionService {
     if (hasMen) allowedMentionedGenders.push(Gender.MAN);
     if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
 
-    const question = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds, { allowedMentionedGenders });
-    if (!question) return null;
+    const remaining = game.remainingCustomQuestions ?? [];
+    const slotsLeft = 50 - previousQuestionsIds.length;
+    const mustServeCustom = remaining.length >= slotsLeft;
+    const serveCustom = remaining.length > 0 && (mustServeCustom || Math.random() < 0.5);
+
+    let question: CustomQuestionEntry;
+    if (serveCustom) {
+      question = remaining[0];
+      game.remainingCustomQuestions = remaining.slice(1);
+    } else {
+      const fetched = await this.fetchQuestion(gameType, modeIds, previousQuestionsIds, { allowedMentionedGenders });
+      if (!fetched) return null;
+      question = fetched;
+    }
 
     game.previousQuestionsIds = [...previousQuestionsIds, question.entity.id];
     game.currentQuestion = question.entity;

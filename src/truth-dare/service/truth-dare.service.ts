@@ -7,6 +7,7 @@ import { ImportTruthDareItemDto } from '../dto/import-truth-dare.dto.js';
 import { UpdateTruthDareDto } from '../dto/update-truth-dare.dto.js';
 import { CreatePartyTruthDareDto, UserSoloItemDto } from '../dto/create-party-truth-dare.dto.js';
 import { Gender } from '../../../types/enums/Gender.js';
+import { shuffle } from '../../common/utils/shuffle.js';
 
 @Injectable()
 export class TruthDareService {
@@ -180,7 +181,7 @@ export class TruthDareService {
     return { created, skipped, errors };
   }
 
-  async createPartySolo(dto: CreatePartyTruthDareDto): Promise<{ question: TruthDare; questionType: string; userTarget: UserSoloItemDto; userMentioned: UserSoloItemDto | null }[]> {
+  async createPartySolo(dto: CreatePartyTruthDareDto): Promise<{ question: TruthDare; questionType: string; userTarget: UserSoloItemDto | null; userMentioned: UserSoloItemDto | null }[]> {
     const hasMen = dto.users.some((u) => u.gender === Gender.MAN);
     const hasWomen = dto.users.some((u) => u.gender === Gender.FEMALE);
 
@@ -209,7 +210,7 @@ export class TruthDareService {
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    return questions.map((question) => {
+    const mapped = questions.map((question) => {
       const eligibleTargets =
         question.gender === Gender.MAN ? menUsers :
         question.gender === Gender.FEMALE ? womenUsers :
@@ -229,5 +230,24 @@ export class TruthDareService {
 
       return { question, questionType: 'truth-dare' as const, userTarget, userMentioned };
     });
+
+    const customMapped = (dto.customQuestions ?? [])
+      .filter((cq) => cq.type === 'truth-dare')
+      .map((cq) => {
+        const fakeQuestion = {
+          id: crypto.randomUUID(),
+          question: cq.question!,
+          type: cq.challengeType as any,
+          gender: Gender.ALL,
+          mentionedUserGender: null,
+          mode: null,
+          createdDate: new Date(),
+          updatedDate: new Date(),
+        } as unknown as TruthDare;
+
+        return { question: fakeQuestion, questionType: 'truth-dare' as const, userTarget: null, userMentioned: null };
+      });
+
+    return shuffle([...mapped, ...customMapped]);
   }
 }

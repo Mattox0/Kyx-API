@@ -92,6 +92,7 @@ export class NeverHaveController {
       gameType: GameType.NEVER_HAVE,
       modeIds: dto.modes,
       isLocal: false,
+      customQuestions: dto.customQuestions,
     }
     const game = await this.gameService.create(createGame, session.user.id)
     return { gameId: game.id, code: game.code }

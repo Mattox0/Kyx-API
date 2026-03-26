@@ -7,6 +7,7 @@ import { ImportPreferItemDto } from '../dto/import-prefer.dto.js';
 import { UpdatePreferDto } from '../dto/update-prefer.dto.js';
 import { CreatePartyPreferDto, UserSoloItemDto } from '../dto/create-party-prefer.dto.js';
 import { Gender } from '../../../types/enums/Gender.js';
+import { shuffle } from '../../common/utils/shuffle.js';
 
 @Injectable()
 export class PreferService {
@@ -202,7 +203,7 @@ export class PreferService {
       return finalPool.length > 0 ? pickRandom(finalPool) : null;
     };
 
-    return questions.map((question) => {
+    const mapped = questions.map((question) => {
       const hasUserPlaceholder = question.choiceOne.includes('{user}') || question.choiceTwo.includes('{user}');
       const genderToUse = question.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
       return {
@@ -212,5 +213,23 @@ export class PreferService {
         userMentioned: pickUser(genderToUse),
       };
     });
+
+    const customMapped = (dto.customQuestions ?? [])
+      .filter((cq) => cq.type === 'prefer')
+      .map((cq) => {
+        const fakeQuestion = {
+          id: crypto.randomUUID(),
+          choiceOne: cq.choiceOne!,
+          choiceTwo: cq.choiceTwo!,
+          mentionedUserGender: null,
+          mode: null,
+          createdDate: new Date(),
+          updatedDate: new Date(),
+        } as unknown as Prefer;
+
+        return { question: fakeQuestion, questionType: 'prefer' as const, userTarget: null, userMentioned: null };
+      });
+
+    return shuffle([...mapped, ...customMapped]);
   }
 }

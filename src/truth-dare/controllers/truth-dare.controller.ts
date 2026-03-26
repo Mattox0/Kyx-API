@@ -95,6 +95,7 @@ export class TruthDareController {
       gameType: GameType.TRUTH_DARE,
       modeIds: dto.modes,
       isLocal: false,
+      customQuestions: dto.customQuestions,
     }
     const game = await this.gameService.create(createGame, session.user.id)
     return { gameId: game.id, code: game.code }

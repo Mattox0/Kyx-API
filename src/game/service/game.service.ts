@@ -5,6 +5,10 @@ import { Mode } from '../../mode/entities/mode.entity.js';
 import { CreateGameDto } from '../dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import { RedisService } from '../../redis/redis.service.js';
+import { CustomQuestionDto } from '../../common/dto/custom-question.dto.js';
+import { CustomQuestionEntry } from '../../../types/ws/GameSession.js';
+import { Gender } from '../../../types/enums/Gender.js';
+import { shuffle } from '../../common/utils/shuffle.js';
 
 @Injectable()
 export class GameService {
@@ -264,6 +268,7 @@ export class GameService {
     const saved = await this.dataSource.manager.save(game);
 
     if (code) {
+      const customQuestionsPool = buildCustomQuestionPool(dto.customQuestions ?? []);
       await this.redisService.setex(
         `game:${code}`,
         86400,
@@ -274,7 +279,9 @@ export class GameService {
           hostId: userId ?? null,
           modeIds: dto.modeIds,
           previousQuestionsIds: [],
-          currentQuestion: null
+          currentQuestion: null,
+          customQuestionsPool,
+          remainingCustomQuestions: [...customQuestionsPool],
         }),
       );
     }
@@ -316,4 +323,30 @@ export class GameService {
 
     return game;
   }
+}
+
+function buildCustomQuestionPool(customQuestions: CustomQuestionDto[]): CustomQuestionEntry[] {
+  const entries: CustomQuestionEntry[] = customQuestions.map((cq) => {
+    const now = new Date();
+    const id = crypto.randomUUID();
+
+    if (cq.type === 'truth-dare') {
+      return {
+        entity: { id, question: cq.question!, type: cq.challengeType, gender: Gender.ALL, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
+        questionType: 'truth-dare',
+      };
+    }
+    if (cq.type === 'never-have') {
+      return {
+        entity: { id, question: cq.question!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
+        questionType: 'never-have',
+      };
+    }
+    return {
+      entity: { id, choiceOne: cq.choiceOne!, choiceTwo: cq.choiceTwo!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
+      questionType: 'prefer',
+    };
+  });
+
+  return shuffle(entries);
 }
