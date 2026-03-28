@@ -79,7 +79,7 @@ export class FinanceService {
     const publisherId = this.configService.get<string>('ADMOB_PUBLISHER_ID');
 
     if (!clientId || !clientSecret || !refreshToken || !publisherId) {
-      this.logger.debug('AdMob credentials not configured, skipping');
+      this.logger.warn(`AdMob credentials missing — clientId:${!!clientId} clientSecret:${!!clientSecret} refreshToken:${!!refreshToken} publisherId:${!!publisherId}`);
       return null;
     }
 
@@ -130,6 +130,7 @@ export class FinanceService {
 
     // AdMob streams NDJSON (one JSON object per line)
     const text = await reportRes.text();
+    this.logger.log(`AdMob raw response: ${text.slice(0, 500)}`);
     const rows = text
       .split('\n')
       .filter(Boolean)
