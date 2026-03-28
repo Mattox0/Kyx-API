@@ -79,7 +79,7 @@ export class FinanceService {
     const publisherId = this.configService.get<string>('ADMOB_PUBLISHER_ID');
 
     if (!clientId || !clientSecret || !refreshToken || !publisherId) {
-      this.logger.warn(`AdMob credentials missing — clientId:${!!clientId} clientSecret:${!!clientSecret} refreshToken:${!!refreshToken} publisherId:${!!publisherId}`);
+      this.logger.debug('AdMob credentials not configured, skipping');
       return null;
     }
 
@@ -96,7 +96,7 @@ export class FinanceService {
 
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
-      this.logger.error(`AdMob token refresh error: ${tokenRes.status} — ${errBody}`);
+      console.error(`AdMob token refresh error: ${tokenRes.status} — ${errBody}`);
       throw new InternalServerErrorException(`AdMob token refresh error: ${tokenRes.status}`);
     }
     const { access_token } = (await tokenRes.json()) as { access_token: string };
@@ -128,14 +128,8 @@ export class FinanceService {
 
     if (!reportRes.ok) throw new InternalServerErrorException(`AdMob report error: ${reportRes.status}`);
 
-    // AdMob streams NDJSON (one JSON object per line)
-    const text = await reportRes.text();
-    this.logger.log(`AdMob raw response: ${text.slice(0, 500)}`);
-    const rows = text
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => { try { return JSON.parse(line) as { row?: AdMobRow }; } catch { return null; } })
-      .filter((item): item is { row: AdMobRow } => !!item?.row);
+    const parsed = (await reportRes.json()) as { row?: AdMobRow }[];
+    const rows = parsed.filter((item): item is { row: AdMobRow } => !!item?.row);
 
     const currentMonthStr = now.format('YYYYMM');
     const thirtyDaysMonthStr = now.subtract(30, 'day').format('YYYYMM');
