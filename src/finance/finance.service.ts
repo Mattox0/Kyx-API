@@ -94,7 +94,11 @@ export class FinanceService {
       }).toString(),
     });
 
-    if (!tokenRes.ok) throw new InternalServerErrorException(`AdMob token refresh error: ${tokenRes.status}`);
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      this.logger.error(`AdMob token refresh error: ${tokenRes.status} — ${errBody}`);
+      throw new InternalServerErrorException(`AdMob token refresh error: ${tokenRes.status}`);
+    }
     const { access_token } = (await tokenRes.json()) as { access_token: string };
 
     const now = dayjs();
