@@ -170,6 +170,9 @@ export class FinanceService {
   }
 
   async getOverview() {
+    const USD_TO_EUR = 0.92;
+    const usd = (v: number) => parseFloat((v * USD_TO_EUR).toFixed(2));
+
     const [overview, chart, admob] = await Promise.all([
       this.fetchOverview(),
       this.fetchMonthlyChart(),
@@ -181,18 +184,26 @@ export class FinanceService {
 
     const monthly = chart.values.map(([ts, rev]) => ({
       x: dayjs.unix(ts).format('MMM YYYY'),
-      y: rev,
+      y: usd(rev),
     }));
 
+    const convertedAdmob = admob ? {
+      ...admob,
+      estimatedEarningsMonth: usd(admob.estimatedEarningsMonth),
+      estimatedEarnings30d: usd(admob.estimatedEarnings30d),
+      ecpmMonth: usd(admob.ecpmMonth),
+      monthly: admob.monthly.map((m) => ({ ...m, y: usd(m.y) })),
+    } : null;
+
     return {
-      mrr: find('mrr'),
-      revenue28d: find('revenue'),
+      mrr: usd(find('mrr')),
+      revenue28d: usd(find('revenue')),
       activeSubscriptions: find('active_subscriptions'),
       newCustomers28d: find('new_customers'),
       currentMonth: monthly.at(-1)?.y ?? 0,
-      totalRevenue: chart.summary?.total?.Revenue ?? 0,
+      totalRevenue: usd(chart.summary?.total?.Revenue ?? 0),
       monthly,
-      admob,
+      admob: convertedAdmob,
     };
   }
 }
