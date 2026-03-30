@@ -43,8 +43,9 @@ export class UserController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('hasDeviceToken') hasDeviceToken?: string,
   ) {
-    return this.userService.findAll(+(page ?? 1), +(limit ?? 50), search);
+    return this.userService.findAll(+(page ?? 1), +(limit ?? 50), search, hasDeviceToken === 'true');
   }
 
   @Get('check-email')

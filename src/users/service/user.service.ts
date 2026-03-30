@@ -34,11 +34,15 @@ export class UserService {
     return !result;
   }
 
-  async findAll(page: number, limit: number, search?: string) {
+  async findAll(page: number, limit: number, search?: string, hasDeviceToken?: boolean) {
     const qb = this.dataSource
       .createQueryBuilder()
       .select('user')
       .from(User, 'user');
+
+    if (hasDeviceToken) {
+      qb.innerJoin('device_token', 'dt', 'dt."userId" = user.id');
+    }
 
     if (search) {
       qb.where(
