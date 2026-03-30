@@ -28,6 +28,8 @@ import { GameModule } from './game/game.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RevenueCatModule } from './revenuecat/revenuecat.module.js';
 import { FinanceModule } from './finance/finance.module.js';
+import { NotificationModule } from './notification/notification.module.js';
+import { DeviceToken } from './notification/entities/device-token.entity.js';
 
 @Module({
   imports: [
@@ -44,7 +46,7 @@ import { FinanceModule } from './finance/finance.module.js';
         username: configService.getOrThrow<string>('POSTGRES_USER'),
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
-        entities: [TruthDare, Prefer, NeverHave, Mode, AdminUser, User, Report, Suggestion],
+        entities: [TruthDare, Prefer, NeverHave, Mode, AdminUser, User, Report, Suggestion, DeviceToken],
         autoLoadEntities: true,
         synchronize: false,
         extra: {
@@ -69,6 +71,7 @@ import { FinanceModule } from './finance/finance.module.js';
     RedisModule,
     RevenueCatModule,
     FinanceModule,
+    NotificationModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],
