@@ -10,7 +10,7 @@ export class NotificationService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async registerToken(token: string): Promise<void> {
+  async registerToken(token: string, userId?: string): Promise<void> {
     if (!Expo.isExpoPushToken(token)) {
       return;
     }
@@ -19,9 +19,20 @@ export class NotificationService {
       .createQueryBuilder()
       .insert()
       .into(DeviceToken)
-      .values({ token })
-      .orIgnore()
+      .values({ token, userId: userId ?? null })
+      .orUpdate(['userId'], ['token'])
       .execute();
+  }
+
+  async sendToUsers(userIds: string[], title: string, body: string): Promise<{ sent: number; failed: number }> {
+    const tokens = await this.dataSource
+      .createQueryBuilder()
+      .select('dt.token', 'token')
+      .from(DeviceToken, 'dt')
+      .where('dt.userId IN (:...userIds)', { userIds })
+      .getRawMany<{ token: string }>();
+
+    return this.sendChunks(tokens.map((t) => t.token), title, body);
   }
 
   async sendToAll(title: string, body: string): Promise<{ sent: number; failed: number }> {
@@ -31,7 +42,11 @@ export class NotificationService {
       .from(DeviceToken, 'dt')
       .getRawMany<{ token: string }>();
 
-    const validTokens = tokens.map((t) => t.token).filter((t) => Expo.isExpoPushToken(t));
+    return this.sendChunks(tokens.map((t) => t.token), title, body);
+  }
+
+  private async sendChunks(tokens: string[], title: string, body: string): Promise<{ sent: number; failed: number }> {
+    const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t));
 
     if (validTokens.length === 0) {
       return { sent: 0, failed: 0 };

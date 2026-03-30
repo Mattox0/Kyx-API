@@ -3,7 +3,11 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity.js';
 
 @Entity('device_token')
 export class DeviceToken {
@@ -13,6 +17,14 @@ export class DeviceToken {
   @Column({ type: 'varchar', unique: true })
   token: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  userId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'userId' })
+  user: User | null;
 }
