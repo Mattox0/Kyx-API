@@ -89,8 +89,6 @@ export class ModeService {
       .where('mode.gameType = :gameType', { gameType })
       .getMany();
 
-    console.log("findByGame");
-
     return modes.map((m) => {
       const translations = m.translations ?? [];
       const translation = translations.find((t) => t.locale === locale)
@@ -98,6 +96,7 @@ export class ModeService {
       return {
         id: m.id,
         createdDate: m.createdDate,
+        translations: toTranslationsMap(translations),
         icon: m.icon,
         gameType: m.gameType,
         name: translation?.name ?? null,
