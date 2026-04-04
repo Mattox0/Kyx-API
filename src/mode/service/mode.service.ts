@@ -1,47 +1,75 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Mode } from '../entities/mode.entity.js';
+import { ModeTranslation } from '../entities/mode-translation.entity.js';
 import { CreateModeDto } from '../dto/create-mode.dto.js';
 import { UpdateModeDto } from '../dto/update-mode.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
+import { DEFAULT_LOCALE } from '../../config/languages.js';
+
+function toTranslationsMap(translations: ModeTranslation[]): Record<string, { name: string; description: string }> {
+  return Object.fromEntries(translations.map((t) => [t.locale, { name: t.name, description: t.description }]));
+}
 
 @Injectable()
 export class ModeService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async create(dto: CreateModeDto, iconPath?: string): Promise<Mode> {
+  async create(dto: CreateModeDto, iconPath?: string): Promise<object | null> {
     const result = await this.dataSource
       .createQueryBuilder()
       .insert()
       .into(Mode)
       .values({
-        ...dto,
+        gameType: dto.gameType,
         icon: iconPath ?? undefined,
       })
       .returning('*')
       .execute();
 
-    return result.raw[0];
+    const id: string = result.raw[0].id;
+
+    const translationsToInsert = Object.entries(dto.translations)
+      .filter(([, val]) => val != null)
+      .map(([locale, val]) => ({ mode: { id }, locale, name: val.name, description: val.description }));
+
+    if (translationsToInsert.length > 0) {
+      await this.dataSource
+        .createQueryBuilder()
+        .insert()
+        .into(ModeTranslation)
+        .values(translationsToInsert)
+        .execute();
+    }
+
+    return this.findOne(id);
   }
 
-  async findAll(): Promise<Mode[]> {
-    return this.dataSource
+  async findAll(): Promise<object[]> {
+    const modes = await this.dataSource
       .createQueryBuilder()
       .select('mode')
       .from(Mode, 'mode')
+      .leftJoinAndSelect('mode.translations', 'translation')
       .getMany();
+
+    return modes.map((m) => ({ ...m, translations: toTranslationsMap(m.translations ?? []) }));
   }
 
-  async findOne(id: string): Promise<Mode | null> {
-    return this.dataSource
+  async findOne(id: string): Promise<object | null> {
+    const mode = await this.dataSource
       .createQueryBuilder()
       .select('mode')
       .from(Mode, 'mode')
+      .leftJoinAndSelect('mode.translations', 'translation')
       .where('mode.id = :id', { id })
       .getOne();
+
+    if (!mode) return null;
+    return { ...mode, translations: toTranslationsMap(mode.translations ?? []) };
   }
 
-  async findByGame(gameName: string): Promise<Mode[]> {
+  async findByGame(gameName: string): Promise<object[]> {
     const gameTypeMap: Record<string, GameType> = {
       'never-have': GameType.NEVER_HAVE,
       'prefer': GameType.PREFER,
@@ -53,21 +81,53 @@ export class ModeService {
       throw new NotFoundException(`Game type "${gameName}" not found`);
     }
 
-    return this.dataSource
+    const modes = await this.dataSource
       .createQueryBuilder()
       .select('mode')
       .from(Mode, 'mode')
+      .leftJoinAndSelect('mode.translations', 'translation')
       .where('mode.gameType = :gameType', { gameType })
       .getMany();
+
+    return modes.map((m) => ({ ...m, translations: toTranslationsMap(m.translations ?? []) }));
   }
 
-  async update(id: string, dto: UpdateModeDto, iconPath?: string): Promise<Mode | null> {
-    await this.dataSource
-      .createQueryBuilder()
-      .update(Mode)
-      .set({ ...dto, ...(iconPath !== undefined ? { iconPath } : {}) })
-      .where('id = :id', { id })
-      .execute();
+  async update(id: string, dto: UpdateModeDto, iconPath?: string): Promise<object | null> {
+    const updateData: Partial<Mode> = {};
+    if (dto.gameType !== undefined) updateData.gameType = dto.gameType;
+    if (iconPath !== undefined) (updateData as any).icon = iconPath;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.dataSource
+        .createQueryBuilder()
+        .update(Mode)
+        .set(updateData)
+        .where('id = :id', { id })
+        .execute();
+    }
+
+    if (dto.translations) {
+      for (const [locale, val] of Object.entries(dto.translations)) {
+        if (val === undefined) continue;
+
+        if (val === null) {
+          if (locale === DEFAULT_LOCALE) {
+            throw new BadRequestException('Cannot delete the French (reference) translation');
+          }
+          await this.dataSource
+            .createQueryBuilder()
+            .delete()
+            .from(ModeTranslation)
+            .where('"modeId" = :id AND locale = :locale', { id, locale })
+            .execute();
+        } else {
+          await this.dataSource.getRepository(ModeTranslation).upsert(
+            [{ mode: { id }, locale, name: val.name, description: val.description }],
+            { conflictPaths: ['mode', 'locale'], skipUpdateIfNoValuesChanged: true },
+          );
+        }
+      }
+    }
 
     return this.findOne(id);
   }

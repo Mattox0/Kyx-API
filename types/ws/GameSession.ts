@@ -1,10 +1,8 @@
 import { GameStatus } from './GameStatus.js';
 import { GameType } from '../enums/GameType.js';
-import { NeverHave } from '../../src/never-have/entities/never-have.entity.js';
-import { Prefer } from '../../src/prefer/entities/prefer.entity.js';
-import { TruthDare } from '../../src/truth-dare/entities/truth-dare.entity.js';
+import { FlatQuestion } from './FlatQuestion.js';
 
-export type Question = NeverHave | Prefer | TruthDare
+export type Question = FlatQuestion;
 
 export interface CustomQuestionEntry {
   entity: Question;

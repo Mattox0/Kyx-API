@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -27,6 +28,16 @@ export class UserController {
       headers: fromNodeHeaders(req.headers),
     });
     return session?.user ?? null;
+  }
+
+  @Put('me/locale')
+  async updateLocale(@Req() req: Request, @Body() body: { locale: string }): Promise<void> {
+    console.log('Updating locale for user', 'to', body.locale);
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    if (!session?.user) throw new UnauthorizedException();
+    await this.userService.update(session.user.id, { locale: body.locale });
   }
 
   @Post('me/coins/add')

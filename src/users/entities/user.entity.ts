@@ -38,6 +38,9 @@ export class User {
   @Column({ type: 'integer', default: 0 })
   coins: number;
 
+  @Column({ type: 'varchar', length: 10, default: 'fr-FR' })
+  locale: string;
+
   @Column({ type: 'boolean', default: false })
   isPremium: boolean;
 

@@ -26,7 +26,7 @@ async function bootstrap() {
     bodyParser: false,
   });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   await app.listen(process.env.PORT ?? 3000);
 }

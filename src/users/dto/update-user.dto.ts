@@ -17,4 +17,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsObject()
   avatarOptions?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  locale?: string;
 }

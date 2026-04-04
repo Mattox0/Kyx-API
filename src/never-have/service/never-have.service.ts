@@ -1,31 +1,90 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CreateNeverHaveDto } from '../dto/create-never-have.dto.js';
 import { ImportNeverHaveItemDto } from '../dto/import-never-have.dto.js';
 import { NeverHave } from '../entities/never-have.entity.js';
+import { NeverHaveTranslation } from '../entities/never-have-translation.entity.js';
 import { UpdateNeverHaveDto } from '../dto/update-never-have.dto.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
 import { CreatePartyNeverHaveDto, UserSoloItemDto } from '../dto/create-party-never-have.dto.js';
 import { Gender } from '../../../types/enums/Gender.js';
 import { shuffle } from '../../common/utils/shuffle.js';
+import { DEFAULT_LOCALE } from '../../config/languages.js';
+import { FlatMode, FlatNeverHave } from '../../../types/ws/FlatQuestion.js';
+
+function pickTranslation<T extends { locale: string }>(translations: T[], locale: string): T | undefined {
+  return translations.find((t) => t.locale === locale) ?? translations.find((t) => t.locale === DEFAULT_LOCALE);
+}
+
+function flattenMode(mode: any, locale: string): FlatMode | null {
+  if (!mode) return null;
+  const translations: any[] = mode.translations ?? [];
+  const t = translations.find((tr) => tr.locale === locale) ?? translations.find((tr) => tr.locale === DEFAULT_LOCALE);
+  if (!t) return null;
+  return { id: mode.id, icon: mode.icon ?? null, gameType: mode.gameType, name: t.name, description: t.description };
+}
+
+function toTranslationsMap(translations: NeverHaveTranslation[]): Record<string, { question: string }> {
+  return Object.fromEntries(translations.map((t) => [t.locale, { question: t.question }]));
+}
+
+function mapModeTranslations(mode: any): any {
+  if (!mode) return mode;
+  const translations: any[] = mode.translations ?? [];
+  return { ...mode, translations: Object.fromEntries(translations.map((t) => [t.locale, { name: t.name, description: t.description }])) };
+}
 
 @Injectable()
 export class NeverHaveService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async findAll(page: number, limit: number, modeId?: string, search?: string) {
+  async findAll(
+    page: number,
+    limit: number,
+    modeId?: string,
+    search?: string,
+    locale?: string,
+    locale_status?: 'translated' | 'untranslated',
+  ) {
     const qb = this.dataSource
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
-      .leftJoinAndSelect('neverHave.mode', 'mode');
+      .leftJoinAndSelect('neverHave.mode', 'mode')
+      .leftJoinAndSelect('mode.translations', 'modeTranslation')
+      .leftJoinAndSelect('neverHave.translations', 'translation');
 
     if (modeId) {
       qb.where('mode.id = :modeId', { modeId });
     }
 
     if (search) {
-      qb.andWhere('(neverHave.question ILIKE :search OR CAST(neverHave.id AS TEXT) ILIKE :search)', { search: `%${search}%` });
+      qb.andWhere((qb2) => {
+        const sub = qb2
+          .subQuery()
+          .select('1')
+          .from(NeverHaveTranslation, 'searchTrans')
+          .where('searchTrans.neverHave = neverHave.id')
+          .andWhere('searchTrans.question ILIKE :search')
+          .getQuery();
+        return `(EXISTS ${sub} OR CAST(neverHave.id AS TEXT) ILIKE :search)`;
+      });
+      qb.setParameter('search', `%${search}%`);
+    }
+
+    if (locale && locale_status) {
+      const existsOp = locale_status === 'translated' ? 'EXISTS' : 'NOT EXISTS';
+      qb.andWhere((qb2) => {
+        const sub = qb2
+          .subQuery()
+          .select('1')
+          .from(NeverHaveTranslation, 'filterTrans')
+          .where('filterTrans.neverHave = neverHave.id')
+          .andWhere('filterTrans.locale = :filterLocale')
+          .getQuery();
+        return `${existsOp} (${sub})`;
+      });
+      qb.setParameter('filterLocale', locale);
     }
 
     const [data, total] = await qb
@@ -37,7 +96,7 @@ export class NeverHaveService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data,
+      data: data.map((q) => ({ ...q, mode: mapModeTranslations(q.mode), translations: toTranslationsMap(q.translations ?? []) })),
       total,
       page,
       totalPages,
@@ -46,31 +105,49 @@ export class NeverHaveService {
     };
   }
 
-  async findOne(id: string): Promise<NeverHave | null> {
-    return this.dataSource
+  async findOne(id: string) {
+    const entity = await this.dataSource
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
       .leftJoinAndSelect('neverHave.mode', 'mode')
+      .leftJoinAndSelect('neverHave.translations', 'translation')
       .where('neverHave.id = :id', { id })
       .getOne();
+
+    if (!entity) return null;
+    return { ...entity, translations: toTranslationsMap(entity.translations ?? []) };
   }
 
-  async create(dto: CreateNeverHaveDto): Promise<NeverHave> {
+  async create(dto: CreateNeverHaveDto) {
     try {
       const result = await this.dataSource
         .createQueryBuilder()
         .insert()
         .into(NeverHave)
         .values({
-          question: dto.question,
           mode: { id: dto.modeId },
           mentionedUserGender: dto.mentionedUserGender ?? null,
         })
         .returning('*')
         .execute();
 
-      return result.raw[0];
+      const id: string = result.raw[0].id;
+
+      const translationsToInsert = Object.entries(dto.translations)
+        .filter(([, val]) => val != null)
+        .map(([locale, val]) => ({ neverHave: { id }, locale, question: val.question }));
+
+      if (translationsToInsert.length > 0) {
+        await this.dataSource
+          .createQueryBuilder()
+          .insert()
+          .into(NeverHaveTranslation)
+          .values(translationsToInsert)
+          .execute();
+      }
+
+      return this.findOne(id);
     } catch (error) {
       if (error.code === '23503') {
         throw new NotFoundException(`Mode with id "${dto.modeId}" not found`);
@@ -79,13 +156,9 @@ export class NeverHaveService {
     }
   }
 
-  async update(id: string, dto: UpdateNeverHaveDto): Promise<NeverHave | null> {
+  async update(id: string, dto: UpdateNeverHaveDto) {
     try {
       const updateData: Partial<NeverHave> = {};
-
-      if (dto.question !== undefined) {
-        updateData.question = dto.question;
-      }
 
       if (dto.modeId !== undefined) {
         updateData.mode = { id: dto.modeId } as Mode;
@@ -100,12 +173,36 @@ export class NeverHaveService {
           .createQueryBuilder()
           .update(NeverHave)
           .set(updateData)
-          .where('id = :id', { id: id })
+          .where('id = :id', { id })
           .execute();
+      }
+
+      if (dto.translations) {
+        for (const [locale, val] of Object.entries(dto.translations)) {
+          if (val === undefined) continue;
+
+          if (val === null) {
+            if (locale === DEFAULT_LOCALE) {
+              throw new BadRequestException('Cannot delete the French (reference) translation');
+            }
+            await this.dataSource
+              .createQueryBuilder()
+              .delete()
+              .from(NeverHaveTranslation)
+              .where('"neverHaveId" = :id AND locale = :locale', { id, locale })
+              .execute();
+          } else {
+            await this.dataSource.getRepository(NeverHaveTranslation).upsert(
+              [{ neverHave: { id }, locale, question: val.question }],
+              { conflictPaths: ['neverHave', 'locale'], skipUpdateIfNoValuesChanged: true },
+            );
+          }
+        }
       }
 
       return this.findOne(id);
     } catch (error) {
+      if (error instanceof BadRequestException) throw error;
       if (error.code === '23503') {
         throw new NotFoundException(`Mode with id "${dto.modeId}" not found`);
       }
@@ -122,18 +219,20 @@ export class NeverHaveService {
       .execute();
   }
 
-  async exportAll(modeId?: string): Promise<NeverHave[]> {
+  async exportAll(modeId?: string) {
     const qb = this.dataSource
       .createQueryBuilder()
       .select('neverHave')
       .from(NeverHave, 'neverHave')
-      .leftJoinAndSelect('neverHave.mode', 'mode');
+      .leftJoinAndSelect('neverHave.mode', 'mode')
+      .leftJoinAndSelect('neverHave.translations', 'translation');
 
     if (modeId) {
       qb.where('mode.id = :modeId', { modeId });
     }
 
-    return qb.getMany();
+    const data = await qb.getMany();
+    return data.map((q) => ({ ...q, mode: mapModeTranslations(q.mode), translations: toTranslationsMap(q.translations ?? []) }));
   }
 
   async bulkCreate(items: ImportNeverHaveItemDto[]): Promise<{ created: number; skipped: number; errors: string[] }> {
@@ -144,16 +243,32 @@ export class NeverHaveService {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       try {
-        await this.dataSource
+        const result = await this.dataSource
           .createQueryBuilder()
           .insert()
           .into(NeverHave)
           .values({
-            question: item.question,
             mode: { id: item.modeId },
             mentionedUserGender: (item as any).mentionedUserGender ?? null,
           })
+          .returning('id')
           .execute();
+
+        const id: string = result.raw[0].id;
+
+        const translationsToInsert = Object.entries(item.translations)
+          .filter(([, val]) => val != null)
+          .map(([locale, val]) => ({ neverHave: { id }, locale, question: val.question }));
+
+        if (translationsToInsert.length > 0) {
+          await this.dataSource
+            .createQueryBuilder()
+            .insert()
+            .into(NeverHaveTranslation)
+            .values(translationsToInsert)
+            .execute();
+        }
+
         created++;
       } catch (error) {
         if (error.code === '23505') {
@@ -169,7 +284,31 @@ export class NeverHaveService {
     return { created, skipped, errors };
   }
 
-  async createPartySolo(dto: CreatePartyNeverHaveDto): Promise<{ question: NeverHave; questionType: string; userTarget: null; userMentioned: UserSoloItemDto | null }[]> {
+  async getTranslationStats() {
+    const total = await this.dataSource.getRepository(NeverHave).count();
+    const rows = await this.dataSource
+      .createQueryBuilder(NeverHaveTranslation, 't')
+      .select('t.locale', 'locale')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('t.locale')
+      .getRawMany();
+
+    const translations: Record<string, { count: number; percentage: number }> = {};
+    for (const row of rows) {
+      const count = Number(row.count);
+      translations[row.locale] = {
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+      };
+    }
+
+    return { questions: { total, translations } };
+  }
+
+  async createPartySolo(
+    dto: CreatePartyNeverHaveDto,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<{ question: FlatNeverHave; questionType: 'never-have'; userTarget: null; userMentioned: UserSoloItemDto | null }[]> {
     const hasMen = dto.users.some((u) => u.gender === Gender.MAN);
     const hasWomen = dto.users.some((u) => u.gender === Gender.FEMALE);
 
@@ -180,42 +319,60 @@ export class NeverHaveService {
     const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'never-have').length;
     const dbLimit = Math.max(0, 50 - customCount);
 
-    const questions = dbLimit === 0 ? [] : await this.dataSource
-      .createQueryBuilder()
-      .select('neverHave')
-      .from(NeverHave, 'neverHave')
-      .leftJoinAndSelect('neverHave.mode', 'mode')
-      .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
-      .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
-      .orderBy('RANDOM()')
-      .limit(dbLimit)
-      .getMany();
+    const questions = dbLimit === 0
+      ? []
+      : await this.dataSource
+          .createQueryBuilder()
+          .select('neverHave')
+          .from(NeverHave, 'neverHave')
+          .leftJoinAndSelect('neverHave.mode', 'mode')
+          .leftJoinAndSelect('mode.translations', 'modeTranslation')
+          .leftJoinAndSelect('neverHave.translations', 'translation')
+          .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
+          .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
+          .orderBy('RANDOM()')
+          .limit(dbLimit)
+          .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    const mapped = questions.map((question) => {
-      let userMentioned: UserSoloItemDto | null = null;
-      if (question.mentionedUserGender !== null) {
-        const mentionedPool = dto.users.filter((u) =>
-          question.mentionedUserGender === Gender.ALL || u.gender === question.mentionedUserGender
-        );
-        const pool = mentionedPool.length > 0 ? mentionedPool : dto.users;
-        userMentioned = pool.length > 0 ? pickRandom(pool) : null;
-      }
-      return { question, questionType: 'never-have' as const, userTarget: null, userMentioned };
-    });
+    const mapped = questions
+      .map((question) => {
+        const translation = pickTranslation(question.translations ?? [], locale);
+        if (!translation) return null;
+
+        const flatQuestion: FlatNeverHave = {
+          id: question.id,
+          mode: flattenMode(question.mode, locale),
+          createdDate: question.createdDate,
+          updatedDate: question.updatedDate,
+          mentionedUserGender: question.mentionedUserGender,
+          question: translation.question,
+        };
+
+        let userMentioned: UserSoloItemDto | null = null;
+        if (question.mentionedUserGender !== null) {
+          const mentionedPool = dto.users.filter((u) =>
+            question.mentionedUserGender === Gender.ALL || u.gender === question.mentionedUserGender,
+          );
+          const pool = mentionedPool.length > 0 ? mentionedPool : dto.users;
+          userMentioned = pool.length > 0 ? pickRandom(pool) : null;
+        }
+        return { question: flatQuestion, questionType: 'never-have' as const, userTarget: null, userMentioned };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
 
     const customMapped = (dto.customQuestions ?? [])
       .filter((cq) => cq.type === 'never-have')
       .map((cq) => {
-        const fakeQuestion = {
+        const fakeQuestion: FlatNeverHave = {
           id: crypto.randomUUID(),
           question: cq.question!,
           mentionedUserGender: null,
           mode: null,
           createdDate: new Date(),
           updatedDate: new Date(),
-        } as unknown as NeverHave;
+        };
 
         return { question: fakeQuestion, questionType: 'never-have' as const, userTarget: null, userMentioned: null };
       });

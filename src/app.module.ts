@@ -6,11 +6,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
 import { TruthDareModule } from './truth-dare/truth-dare.module.js';
 import { TruthDare } from './truth-dare/entities/truth-dare.entity.js';
+import { TruthDareTranslation } from './truth-dare/entities/truth-dare-translation.entity.js';
 import { NeverHaveModule } from './never-have/never-have.module.js';
 import { PreferModule } from './prefer/prefer.module.js';
 import { Prefer } from './prefer/entities/prefer.entity.js';
+import { PreferTranslation } from './prefer/entities/prefer-translation.entity.js';
 import { NeverHave } from './never-have/entities/never-have.entity.js';
+import { NeverHaveTranslation } from './never-have/entities/never-have-translation.entity.js';
 import { Mode } from './mode/entities/mode.entity.js';
+import { ModeTranslation } from './mode/entities/mode-translation.entity.js';
 import { ModeModule } from './mode/mode.module.js';
 import { AdminUser } from './admin-users/entities/admin-user.entity.js';
 import { AdminUserModule } from './admin-users/admin-user.module.js';
@@ -46,7 +50,7 @@ import { DeviceToken } from './notification/entities/device-token.entity.js';
         username: configService.getOrThrow<string>('POSTGRES_USER'),
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
-        entities: [TruthDare, Prefer, NeverHave, Mode, AdminUser, User, Report, Suggestion, DeviceToken],
+        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken],
         autoLoadEntities: true,
         synchronize: false,
         extra: {

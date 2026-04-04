@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { GameType } from '../../../types/enums/GameType.js';
 import { Suggestion } from '../../suggestion/entities/suggestion.entity.js';
+import { ModeTranslation } from './mode-translation.entity.js';
 
 @Entity("mode")
 export class Mode extends BaseEntity {
@@ -17,12 +18,6 @@ export class Mode extends BaseEntity {
   @CreateDateColumn({ type: 'timestamp' })
   createdDate: Date;
 
-  @Column({ type: 'varchar', length: 255 })
-  name: string;
-
-  @Column({ type: 'varchar', length: 255 })
-  description: string;
-
   @Column({ type: 'varchar', length: 255, nullable: true })
   icon: string;
 
@@ -31,6 +26,9 @@ export class Mode extends BaseEntity {
     enum: GameType,
   })
   gameType: GameType;
+
+  @OneToMany(() => ModeTranslation, (t) => t.mode)
+  translations: ModeTranslation[];
 
   @OneToMany(() => Suggestion, (suggestion) => suggestion.mode)
   suggestions: Suggestion[]

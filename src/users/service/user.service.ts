@@ -139,6 +139,7 @@ export class UserService {
     if (dto.image !== undefined) updateData.image = dto.image;
     if (dto.gender !== undefined) updateData.gender = dto.gender;
     if (dto.avatarOptions !== undefined) updateData.avatarOptions = dto.avatarOptions;
+    if (dto.locale !== undefined) updateData.locale = dto.locale;
 
     if (Object.keys(updateData).length > 0) {
       await this.dataSource

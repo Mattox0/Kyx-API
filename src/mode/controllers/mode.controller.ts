@@ -17,7 +17,6 @@ import { extname } from 'path';
 import { ModeService } from '../service/mode.service.js';
 import { CreateModeDto } from '../dto/create-mode.dto.js';
 import { UpdateModeDto } from '../dto/update-mode.dto.js';
-import { Mode } from '../entities/mode.entity.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 
 const multerOptions = {
@@ -40,23 +39,23 @@ export class ModeController {
   async create(
     @Body() dto: CreateModeDto,
     @UploadedFile() file?: Express.Multer.File,
-  ): Promise<Mode> {
+  ): Promise<object | null> {
     const iconPath = file ? file.path : undefined;
     return this.modeService.create(dto, iconPath);
   }
 
   @Get()
-  async findAll(): Promise<Mode[]> {
+  async findAll(): Promise<object[]> {
     return this.modeService.findAll();
   }
 
   @Get('/game/:gameName')
-  async findByGame(@Param('gameName') gameName: string): Promise<Mode[]> {
+  async findByGame(@Param('gameName') gameName: string): Promise<object[]> {
     return this.modeService.findByGame(gameName);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Mode> {
+  async findOne(@Param('id') id: string): Promise<object> {
     const mode = await this.modeService.findOne(id);
     if (!mode) throw new NotFoundException(`Mode ${id} not found`);
     return mode;
@@ -69,7 +68,7 @@ export class ModeController {
     @Param('id') id: string,
     @Body() dto: UpdateModeDto,
     @UploadedFile() file?: Express.Multer.File,
-  ): Promise<Mode> {
+  ): Promise<object> {
     const iconPath = file ? file.path : undefined;
     const mode = await this.modeService.update(id, dto, iconPath);
     if (!mode) throw new NotFoundException(`Mode ${id} not found`);

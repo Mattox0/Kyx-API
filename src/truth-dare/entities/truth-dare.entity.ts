@@ -4,6 +4,7 @@ import {
   CreateDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -11,14 +12,12 @@ import type { Relation } from 'typeorm';
 import { Gender } from '../../../types/enums/Gender.js';
 import { ChallengeType } from '../../../types/enums/TruthDareChallengeType.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
+import { TruthDareTranslation } from './truth-dare-translation.entity.js';
 
-@Entity("truth-dare")
+@Entity('truth-dare')
 export class TruthDare extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ type: 'varchar', unique: true, nullable: false })
-  question: string;
 
   @Column({
     type: 'enum',
@@ -52,4 +51,7 @@ export class TruthDare extends BaseEntity {
 
   @ManyToOne(() => Mode, { onDelete: 'CASCADE' })
   mode: Relation<Mode>;
+
+  @OneToMany(() => TruthDareTranslation, (t) => t.truthDare)
+  translations: TruthDareTranslation[];
 }

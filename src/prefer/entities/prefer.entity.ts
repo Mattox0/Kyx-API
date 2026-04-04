@@ -4,25 +4,19 @@ import {
   CreateDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
-  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { Gender } from '../../../types/enums/Gender.js';
 import { Mode } from '../../mode/entities/mode.entity.js';
+import { PreferTranslation } from './prefer-translation.entity.js';
 
-@Entity("prefer")
-@Unique(['choiceOne', 'choiceTwo', 'mode'])
+@Entity('prefer')
 export class Prefer extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ type: 'varchar', unique: false, nullable: false })
-  choiceOne: string;
-
-  @Column({ type: 'varchar', unique: false, nullable: false })
-  choiceTwo: string;
 
   @Column({
     type: 'enum',
@@ -40,4 +34,7 @@ export class Prefer extends BaseEntity {
 
   @ManyToOne(() => Mode, { onDelete: 'CASCADE' })
   mode: Relation<Mode>;
+
+  @OneToMany(() => PreferTranslation, (t) => t.prefer)
+  translations: PreferTranslation[];
 }

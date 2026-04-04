@@ -1,13 +1,10 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Gender } from '../../../types/enums/Gender.js';
 import { ChallengeType } from '../../../types/enums/TruthDareChallengeType.js';
+import { TruthDareTranslationsDto } from './create-truth-dare.dto.js';
 
 export class ImportTruthDareItemDto {
-  @IsString()
-  @IsNotEmpty()
-  question: string;
-
   @IsEnum(Gender)
   @IsNotEmpty()
   gender: Gender;
@@ -19,6 +16,11 @@ export class ImportTruthDareItemDto {
   @IsString()
   @IsNotEmpty()
   modeId: string;
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => TruthDareTranslationsDto)
+  translations: TruthDareTranslationsDto;
 
   @IsEnum(Gender)
   @IsOptional()

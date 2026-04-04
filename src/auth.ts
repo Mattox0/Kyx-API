@@ -80,6 +80,13 @@ export const auth = betterAuth({
         input: true,
         defaultValue: 0,
       },
+      locale: {
+        type: 'string',
+        required: false,
+        returned: true,
+        input: true,
+        defaultValue: 'fr',
+      },
     },
   },
   session: {
