@@ -238,6 +238,7 @@ export class GameSessionService {
       status: GameStatus.WAITING,
       hostId: game.hostId,
       modeIds: game.modeIds,
+      locale: game.locale,
       previousQuestionsIds: [],
       currentQuestion: null,
       currentUserTargetId: null,
@@ -273,7 +274,7 @@ export class GameSessionService {
     const game = await this.getGame(code);
     if (!game) return null;
 
-    const { gameType, modeIds, previousQuestionsIds } = game;
+    const { gameType, modeIds, previousQuestionsIds, locale } = game;
 
     if (previousQuestionsIds.length >= 50) return null;
 
@@ -299,6 +300,7 @@ export class GameSessionService {
         gameType,
         modeIds,
         previousQuestionsIds,
+        locale ?? DEFAULT_LOCALE,
         { allowedMentionedGenders },
       );
       if (!fetched) return null;
@@ -368,6 +370,7 @@ export class GameSessionService {
     gameType: GameType,
     modeIds: string[],
     previousIds: string[],
+    locale: string,
     filters?: { allowedMentionedGenders?: Gender[] },
   ): Promise<{ entity: Question; questionType: string } | null> {
     const configs: Record<
@@ -385,7 +388,7 @@ export class GameSessionService {
         questionType: 'never-have',
         flatten: (raw, t): FlatNeverHave => ({
           id: raw.id,
-          mode: flattenMode(raw.mode, DEFAULT_LOCALE),
+          mode: flattenMode(raw.mode, locale),
           createdDate: raw.createdDate,
           updatedDate: raw.updatedDate,
           mentionedUserGender: raw.mentionedUserGender,
@@ -398,7 +401,7 @@ export class GameSessionService {
         questionType: 'prefer',
         flatten: (raw, t): FlatPrefer => ({
           id: raw.id,
-          mode: flattenMode(raw.mode, DEFAULT_LOCALE),
+          mode: flattenMode(raw.mode, locale),
           createdDate: raw.createdDate,
           updatedDate: raw.updatedDate,
           mentionedUserGender: raw.mentionedUserGender,
@@ -412,7 +415,7 @@ export class GameSessionService {
         questionType: 'truth-dare',
         flatten: (raw, t): FlatTruthDare => ({
           id: raw.id,
-          mode: flattenMode(raw.mode, DEFAULT_LOCALE),
+          mode: flattenMode(raw.mode, locale),
           createdDate: raw.createdDate,
           updatedDate: raw.updatedDate,
           mentionedUserGender: raw.mentionedUserGender,
@@ -455,7 +458,9 @@ export class GameSessionService {
 
     const translations: { locale: string }[] = (raw as any).translations ?? [];
     const translation =
-      translations.find((t) => t.locale === DEFAULT_LOCALE) ?? translations[0];
+      translations.find((t) => t.locale === locale)
+      ?? translations.find((t) => t.locale === DEFAULT_LOCALE)
+      ?? translations[0];
     if (!translation) return null;
 
     return {

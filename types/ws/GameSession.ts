@@ -14,7 +14,8 @@ export interface GameSession {
   gameType: GameType,
   status: GameStatus,
   hostId: string,
-  modeIds: string[]
+  modeIds: string[],
+  locale: string,
   previousQuestionsIds: string[],
   currentQuestion: Question | null;
   currentUserTargetId: string | null;

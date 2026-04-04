@@ -69,7 +69,7 @@ export class ModeService {
     return { ...mode, translations: toTranslationsMap(mode.translations ?? []) };
   }
 
-  async findByGame(gameName: string): Promise<object[]> {
+  async findByGame(gameName: string, locale: string): Promise<object[]> {
     const gameTypeMap: Record<string, GameType> = {
       'never-have': GameType.NEVER_HAVE,
       'prefer': GameType.PREFER,
@@ -89,7 +89,21 @@ export class ModeService {
       .where('mode.gameType = :gameType', { gameType })
       .getMany();
 
-    return modes.map((m) => ({ ...m, translations: toTranslationsMap(m.translations ?? []) }));
+    console.log("findByGame");
+
+    return modes.map((m) => {
+      const translations = m.translations ?? [];
+      const translation = translations.find((t) => t.locale === locale)
+        ?? translations.find((t) => t.locale === DEFAULT_LOCALE);
+      return {
+        id: m.id,
+        createdDate: m.createdDate,
+        icon: m.icon,
+        gameType: m.gameType,
+        name: translation?.name ?? null,
+        description: translation?.description ?? null,
+      };
+    });
   }
 
   async update(id: string, dto: UpdateModeDto, iconPath?: string): Promise<object | null> {

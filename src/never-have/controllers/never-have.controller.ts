@@ -109,7 +109,8 @@ export class NeverHaveController {
       isLocal: false,
       customQuestions: dto.customQuestions,
     };
-    const game = await this.gameService.create(createGame, session.user.id);
+    const locale = detectLocale(acceptLanguage);
+    const game = await this.gameService.create(createGame, session.user.id, locale);
     return { gameId: game.id, code: game.code };
   }
 }

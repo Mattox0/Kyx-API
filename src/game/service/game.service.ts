@@ -5,6 +5,7 @@ import { Mode } from '../../mode/entities/mode.entity.js';
 import { CreateGameDto } from '../dto/create-game.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import { RedisService } from '../../redis/redis.service.js';
+import { DEFAULT_LOCALE } from '../../config/languages.js';
 import { CustomQuestionDto } from '../../common/dto/custom-question.dto.js';
 import { CustomQuestionEntry } from '../../../types/ws/GameSession.js';
 import { Gender } from '../../../types/enums/Gender.js';
@@ -242,7 +243,7 @@ export class GameService {
     };
   }
 
-  async create(dto: CreateGameDto, userId?: string): Promise<Game> {
+  async create(dto: CreateGameDto, userId?: string, locale: string = DEFAULT_LOCALE): Promise<Game> {
     const modes = await this.dataSource
       .createQueryBuilder()
       .select('mode')
@@ -278,6 +279,7 @@ export class GameService {
           status: 'waiting',
           hostId: userId ?? null,
           modeIds: dto.modeIds,
+          locale,
           previousQuestionsIds: [],
           currentQuestion: null,
           customQuestionsPool,

@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Headers,
   UseInterceptors,
   UploadedFile,
   NotFoundException,
@@ -18,6 +19,7 @@ import { ModeService } from '../service/mode.service.js';
 import { CreateModeDto } from '../dto/create-mode.dto.js';
 import { UpdateModeDto } from '../dto/update-mode.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
+import { detectLocale } from '../../config/languages.js';
 
 const multerOptions = {
   storage: diskStorage({
@@ -50,8 +52,12 @@ export class ModeController {
   }
 
   @Get('/game/:gameName')
-  async findByGame(@Param('gameName') gameName: string): Promise<object[]> {
-    return this.modeService.findByGame(gameName);
+  async findByGame(
+    @Param('gameName') gameName: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<object[]> {
+    const locale = detectLocale(acceptLanguage);
+    return this.modeService.findByGame(gameName, locale);
   }
 
   @Get(':id')
