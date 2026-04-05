@@ -429,31 +429,37 @@ export class GameSessionService {
     const config = configs[gameType];
     if (!config) return null;
 
-    const qb = this.dataSource
+    const idQb = this.dataSource
+      .createQueryBuilder()
+      .select(`${config.alias}.id`, 'id')
+      .from(config.entity, config.alias)
+      .where(`${config.alias}.modeId IN (:...modeIds)`, { modeIds })
+      .orderBy('RANDOM()')
+      .limit(1);
+
+    if (previousIds.length > 0) {
+      idQb.andWhere(`${config.alias}.id NOT IN (:...previousIds)`, { previousIds });
+    }
+
+    if (filters?.allowedMentionedGenders) {
+      idQb.andWhere(
+        `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
+        { allowedMentionedGenders: filters.allowedMentionedGenders },
+      );
+    }
+
+    const idResult = await idQb.getRawOne<{ id: string }>();
+    if (!idResult) return null;
+
+    const raw = await this.dataSource
       .createQueryBuilder()
       .select(config.alias)
       .from(config.entity, config.alias)
       .leftJoinAndSelect(`${config.alias}.mode`, 'mode')
       .leftJoinAndSelect('mode.translations', 'modeTranslation')
       .leftJoinAndSelect(`${config.alias}.translations`, 'translation')
-      .where(`${config.alias}.modeId IN (:...modeIds)`, { modeIds })
-      .orderBy('RANDOM()')
-      .limit(1);
-
-    if (previousIds.length > 0) {
-      qb.andWhere(`${config.alias}.id NOT IN (:...previousIds)`, {
-        previousIds,
-      });
-    }
-
-    if (filters?.allowedMentionedGenders) {
-      qb.andWhere(
-        `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
-        { allowedMentionedGenders: filters.allowedMentionedGenders },
-      );
-    }
-
-    const raw = await qb.getOne();
+      .where(`${config.alias}.id = :id`, { id: idResult.id })
+      .getOne();
     if (!raw) return null;
 
     const translations: { locale: string }[] = (raw as any).translations ?? [];

@@ -319,7 +319,19 @@ export class NeverHaveService {
     const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'never-have').length;
     const dbLimit = Math.max(0, 50 - customCount);
 
-    const questions = dbLimit === 0
+    const randomIds = dbLimit === 0
+      ? []
+      : await this.dataSource
+          .createQueryBuilder()
+          .select('neverHave.id', 'id')
+          .from(NeverHave, 'neverHave')
+          .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
+          .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
+          .orderBy('RANDOM()')
+          .limit(dbLimit)
+          .getRawMany<{ id: string }>();
+
+    const questions = randomIds.length === 0
       ? []
       : await this.dataSource
           .createQueryBuilder()
@@ -328,10 +340,7 @@ export class NeverHaveService {
           .leftJoinAndSelect('neverHave.mode', 'mode')
           .leftJoinAndSelect('mode.translations', 'modeTranslation')
           .leftJoinAndSelect('neverHave.translations', 'translation')
-          .where('neverHave.modeId IN (:...modeIds)', { modeIds: dto.modes })
-          .andWhere('(neverHave.mentionedUserGender IS NULL OR neverHave.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
-          .orderBy('RANDOM()')
-          .limit(dbLimit)
+          .where('neverHave.id IN (:...ids)', { ids: randomIds.map((r) => r.id) })
           .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];

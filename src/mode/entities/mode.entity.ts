@@ -27,6 +27,9 @@ export class Mode extends BaseEntity {
   })
   gameType: GameType;
 
+  @Column({ type: 'integer', default: 0 })
+  position: number;
+
   @OneToMany(() => ModeTranslation, (t) => t.mode)
   translations: ModeTranslation[];
 

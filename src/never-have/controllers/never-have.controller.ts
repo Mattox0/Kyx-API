@@ -84,7 +84,7 @@ export class NeverHaveController {
   async createPartySolo(
     @Body() dto: CreatePartyNeverHaveDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const locale = detectLocale(acceptLanguage);
     const createGame: CreateGameDto = {
@@ -101,7 +101,7 @@ export class NeverHaveController {
   async createPartyOnline(
     @Body() dto: CreatePartyOnlineNeverHaveDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const createGame: CreateGameDto = {
       gameType: GameType.NEVER_HAVE,

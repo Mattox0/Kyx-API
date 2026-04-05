@@ -80,7 +80,7 @@ export class TruthDareController {
   async createPartySolo(
     @Body() dto: CreatePartyTruthDareDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const locale = detectLocale(acceptLanguage);
     const createGame: CreateGameDto = {
@@ -97,7 +97,7 @@ export class TruthDareController {
   async createPartyOnline(
     @Body() dto: CreatePartyOnlineTruthDareDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const createGame: CreateGameDto = {
       gameType: GameType.TRUTH_DARE,

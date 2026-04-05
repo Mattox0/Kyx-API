@@ -11,6 +11,7 @@ import {
   UploadedFile,
   NotFoundException,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -18,6 +19,7 @@ import { extname } from 'path';
 import { ModeService } from '../service/mode.service.js';
 import { CreateModeDto } from '../dto/create-mode.dto.js';
 import { UpdateModeDto } from '../dto/update-mode.dto.js';
+import { ReorderModesDto } from '../dto/reorder-modes.dto.js';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 import { detectLocale } from '../../config/languages.js';
 
@@ -54,7 +56,7 @@ export class ModeController {
   @Get('/game/:gameName')
   async findByGame(
     @Param('gameName') gameName: string,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ): Promise<object[]> {
     const locale = detectLocale(acceptLanguage);
     return this.modeService.findByGame(gameName, locale);
@@ -65,6 +67,13 @@ export class ModeController {
     const mode = await this.modeService.findOne(id);
     if (!mode) throw new NotFoundException(`Mode ${id} not found`);
     return mode;
+  }
+
+  @Put('reorder')
+  @UseGuards(AdminAuthGuard)
+  @HttpCode(204)
+  async reorder(@Body() body: ReorderModesDto): Promise<void> {
+    return this.modeService.reorder(body.ids);
   }
 
   @Put(':id')

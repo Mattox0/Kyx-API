@@ -16,6 +16,13 @@ export class ModeService {
   constructor(private readonly dataSource: DataSource) {}
 
   async create(dto: CreateModeDto, iconPath?: string): Promise<object | null> {
+    const row = await this.dataSource
+      .createQueryBuilder()
+      .select('COALESCE(MAX(mode.position), -1)', 'maxPos')
+      .from(Mode, 'mode')
+      .where('mode.gameType = :gameType', { gameType: dto.gameType })
+      .getRawOne<{ maxPos: number }>();
+
     const result = await this.dataSource
       .createQueryBuilder()
       .insert()
@@ -23,6 +30,7 @@ export class ModeService {
       .values({
         gameType: dto.gameType,
         icon: iconPath ?? undefined,
+        position: Number(row?.maxPos ?? -1) + 1,
       })
       .returning('*')
       .execute();
@@ -51,6 +59,8 @@ export class ModeService {
       .select('mode')
       .from(Mode, 'mode')
       .leftJoinAndSelect('mode.translations', 'translation')
+      .orderBy('mode.gameType', 'ASC')
+      .addOrderBy('mode.position', 'ASC')
       .getMany();
 
     return modes.map((m) => ({ ...m, translations: toTranslationsMap(m.translations ?? []) }));
@@ -87,6 +97,7 @@ export class ModeService {
       .from(Mode, 'mode')
       .leftJoinAndSelect('mode.translations', 'translation')
       .where('mode.gameType = :gameType', { gameType })
+      .orderBy('mode.position', 'ASC')
       .getMany();
 
     return modes.map((m) => {
@@ -99,6 +110,7 @@ export class ModeService {
         translations: toTranslationsMap(translations),
         icon: m.icon,
         gameType: m.gameType,
+        position: m.position,
         name: translation?.name ?? null,
         description: translation?.description ?? null,
       };
@@ -143,6 +155,19 @@ export class ModeService {
     }
 
     return this.findOne(id);
+  }
+
+  async reorder(ids: string[]): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      for (let i = 0; i < ids.length; i++) {
+        await manager
+          .createQueryBuilder()
+          .update(Mode)
+          .set({ position: i })
+          .where('id = :id', { id: ids[i] })
+          .execute();
+      }
+    });
   }
 
   async remove(id: string): Promise<void> {

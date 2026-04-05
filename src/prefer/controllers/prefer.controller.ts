@@ -80,7 +80,7 @@ export class PreferController {
   async createPartySolo(
     @Body() dto: CreatePartyPreferDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const locale = detectLocale(acceptLanguage);
     const createGame: CreateGameDto = {
@@ -97,7 +97,7 @@ export class PreferController {
   async createPartyOnline(
     @Body() dto: CreatePartyOnlinePreferDto,
     @Session() session: UserSession,
-    @Headers('accept-language') acceptLanguage?: string,
+    @Headers('accept-language') acceptLanguage: string = 'fr',
   ) {
     const createGame: CreateGameDto = {
       gameType: GameType.PREFER,

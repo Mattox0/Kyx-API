@@ -319,7 +319,19 @@ export class PreferService {
     const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'prefer').length;
     const dbLimit = Math.max(0, 50 - customCount);
 
-    const questions = dbLimit === 0
+    const randomIds = dbLimit === 0
+      ? []
+      : await this.dataSource
+          .createQueryBuilder()
+          .select('prefer.id', 'id')
+          .from(Prefer, 'prefer')
+          .where('prefer.modeId IN (:...modeIds)', { modeIds: dto.modes })
+          .andWhere('(prefer.mentionedUserGender IS NULL OR prefer.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
+          .orderBy('RANDOM()')
+          .limit(dbLimit)
+          .getRawMany<{ id: string }>();
+
+    const questions = randomIds.length === 0
       ? []
       : await this.dataSource
           .createQueryBuilder()
@@ -328,10 +340,7 @@ export class PreferService {
           .leftJoinAndSelect('prefer.mode', 'mode')
           .leftJoinAndSelect('mode.translations', 'modeTranslation')
           .leftJoinAndSelect('prefer.translations', 'translation')
-          .where('prefer.modeId IN (:...modeIds)', { modeIds: dto.modes })
-          .andWhere('(prefer.mentionedUserGender IS NULL OR prefer.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
-          .orderBy('RANDOM()')
-          .limit(dbLimit)
+          .where('prefer.id IN (:...ids)', { ids: randomIds.map((r) => r.id) })
           .getMany();
 
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];

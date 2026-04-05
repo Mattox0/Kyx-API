@@ -336,7 +336,20 @@ export class TruthDareService {
     const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'truth-dare').length;
     const dbLimit = Math.max(0, 50 - customCount);
 
-    const questions = dbLimit === 0
+    const randomIds = dbLimit === 0
+      ? []
+      : await this.dataSource
+          .createQueryBuilder()
+          .select('truthDare.id', 'id')
+          .from(TruthDare, 'truthDare')
+          .where('truthDare.modeId IN (:...modeIds)', { modeIds: dto.modes })
+          .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
+          .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
+          .orderBy('RANDOM()')
+          .limit(dbLimit)
+          .getRawMany<{ id: string }>();
+
+    const questions = randomIds.length === 0
       ? []
       : await this.dataSource
           .createQueryBuilder()
@@ -345,11 +358,7 @@ export class TruthDareService {
           .leftJoinAndSelect('truthDare.mode', 'mode')
           .leftJoinAndSelect('mode.translations', 'modeTranslation')
           .leftJoinAndSelect('truthDare.translations', 'translation')
-          .where('truthDare.modeId IN (:...modeIds)', { modeIds: dto.modes })
-          .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
-          .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
-          .orderBy('RANDOM()')
-          .limit(dbLimit)
+          .where('truthDare.id IN (:...ids)', { ids: randomIds.map((r) => r.id) })
           .getMany();
 
     const menUsers = dto.users.filter((u) => u.gender === Gender.MAN);
