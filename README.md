@@ -128,3 +128,7 @@ Pour appliquer les migrations manuellement :
 ```bash
 psql postgresql://<user>:<password>@<host>:5432/<database> -f better-auth_migrations/<fichier>.sql
 ```
+
+## Traduire les questions avec Deepl : 
+
+`npx tsx scripts/translate-questions.ts`
