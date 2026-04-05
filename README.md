@@ -132,3 +132,13 @@ psql postgresql://<user>:<password>@<host>:5432/<database> -f better-auth_migrat
 ## Traduire les questions avec Deepl : 
 
 `npx tsx scripts/translate-questions.ts`
+
+## Importer la db locale vers la db-prod :
+
+```
+sudo docker exec <container_local> pg_dump -U <user> -d <database> --no-owner --no-acl > ./kyx_backup.dump
+
+scp ./kyx_backup.dump user@vps_ip:/tmp/kyx_backup.dump
+
+sudo docker exec 61b102d44da9 pg_dump -U kyx_prod -d kyx_prod --no-owner --no-acl > ./kyx_backup.dump
+```
