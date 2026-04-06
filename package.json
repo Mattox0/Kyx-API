@@ -25,7 +25,8 @@
     "migration:create": "typeorm migration:create",
     "migration:generate": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:generate migrations/migration -d src/data-source.ts",
     "migration:run": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:run -d src/data-source.ts",
-    "migration:revert": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:revert -d src/data-source.ts"
+    "migration:revert": "NODE_OPTIONS='--loader ts-node/esm' typeorm migration:revert -d src/data-source.ts",
+    "translate:questions": "tsx scripts/translate-questions.ts"
   },
   "dependencies": {
     "@better-auth/expo": "1.4.20",

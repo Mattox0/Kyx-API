@@ -2,9 +2,8 @@
  * Script de traduction en masse des questions via DeepL.
  *
  * Usage:
- *   NODE_OPTIONS='--loader ts-node/esm' npx ts-node scripts/translate-questions.ts
- *   NODE_OPTIONS='--loader ts-node/esm' npx ts-node scripts/translate-questions.ts --dry-run
- *   NODE_OPTIONS='--loader ts-node/esm' npx ts-node scripts/translate-questions.ts --module truthDare
+ *   npx ts-node scripts/translate-questions.ts
+ *   npx ts-node scripts/translate-questions.ts --module truthDare
  */
 
 import { readFileSync } from 'fs';
