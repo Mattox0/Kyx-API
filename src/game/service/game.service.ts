@@ -110,21 +110,19 @@ export class GameService {
   }
 
   async getStatsByMode(gameType: GameType) {
-    const rows: { name: string; locale: string; count: string }[] = await this.dataSource
+    const rows: { name: string; count: string }[] = await this.dataSource
       .createQueryBuilder()
       .select('mt.name', 'name')
-      .addSelect('mt.locale', 'locale')
       .addSelect('COUNT(DISTINCT game.id)', 'count')
       .from(Game, 'game')
       .innerJoin('game.modes', 'mode')
-      .innerJoin('mode.translations', 'mt')
+      .innerJoin('mode.translations', 'mt', 'mt.locale = :locale', { locale: DEFAULT_LOCALE })
       .where('game.gameType = :gameType', { gameType })
       .groupBy('mode.id')
       .addGroupBy('mt.name')
-      .addGroupBy('mt.locale')
       .getRawMany();
 
-    return rows.map((r) => ({ name: r.name, locale: r.locale, amount: parseInt(r.count, 10) }));
+    return rows.map((r) => ({ name: r.name, amount: parseInt(r.count, 10) }));
   }
 
   async getStatsByType() {
