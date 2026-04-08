@@ -9,18 +9,23 @@ import {
 } from 'class-validator';
 import { Gender } from '../../../types/enums/Gender.js';
 import { ChallengeType } from '../../../types/enums/TruthDareChallengeType.js';
-import { TruthDareTranslationItemDto } from './create-truth-dare.dto.js';
+
+class UpdateTruthDareTranslationItemDto {
+  @IsString()
+  @IsOptional()
+  question?: string;
+}
 
 class UpdateTruthDareTranslationsDto {
   @IsOptional()
   @ValidateNested()
-  @Type(() => TruthDareTranslationItemDto)
-  fr?: TruthDareTranslationItemDto | null;
+  @Type(() => UpdateTruthDareTranslationItemDto)
+  fr?: UpdateTruthDareTranslationItemDto | null;
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => TruthDareTranslationItemDto)
-  en?: TruthDareTranslationItemDto | null;
+  @Type(() => UpdateTruthDareTranslationItemDto)
+  en?: UpdateTruthDareTranslationItemDto | null;
 }
 
 export class UpdateTruthDareDto {

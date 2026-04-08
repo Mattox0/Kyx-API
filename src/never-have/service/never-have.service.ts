@@ -181,19 +181,22 @@ export class NeverHaveService {
         for (const [locale, val] of Object.entries(dto.translations)) {
           if (val === undefined) continue;
 
-          if (val === null) {
+          const isEmpty = val === null || !(val.question ?? '').trim();
+          if (isEmpty) {
             if (locale === DEFAULT_LOCALE) {
-              throw new BadRequestException('Cannot delete the French (reference) translation');
+              if (val === null) throw new BadRequestException('Cannot delete the French (reference) translation');
+              // empty string for FR: ignore
+            } else {
+              await this.dataSource
+                .createQueryBuilder()
+                .delete()
+                .from(NeverHaveTranslation)
+                .where('"neverHaveId" = :id AND locale = :locale', { id, locale })
+                .execute();
             }
-            await this.dataSource
-              .createQueryBuilder()
-              .delete()
-              .from(NeverHaveTranslation)
-              .where('"neverHaveId" = :id AND locale = :locale', { id, locale })
-              .execute();
           } else {
             await this.dataSource.getRepository(NeverHaveTranslation).upsert(
-              [{ neverHave: { id }, locale, question: val.question }],
+              [{ neverHave: { id }, locale, question: val!.question!.trim() }],
               { conflictPaths: ['neverHave', 'locale'], skipUpdateIfNoValuesChanged: true },
             );
           }

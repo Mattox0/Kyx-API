@@ -181,19 +181,22 @@ export class PreferService {
         for (const [locale, val] of Object.entries(dto.translations)) {
           if (val === undefined) continue;
 
-          if (val === null) {
+          const isEmpty = val === null || (!(val.choiceOne ?? '').trim() && !(val.choiceTwo ?? '').trim());
+          if (isEmpty) {
             if (locale === DEFAULT_LOCALE) {
-              throw new BadRequestException('Cannot delete the French (reference) translation');
+              if (val === null) throw new BadRequestException('Cannot delete the French (reference) translation');
+              // empty string for FR: ignore
+            } else {
+              await this.dataSource
+                .createQueryBuilder()
+                .delete()
+                .from(PreferTranslation)
+                .where('"preferId" = :id AND locale = :locale', { id, locale })
+                .execute();
             }
-            await this.dataSource
-              .createQueryBuilder()
-              .delete()
-              .from(PreferTranslation)
-              .where('"preferId" = :id AND locale = :locale', { id, locale })
-              .execute();
           } else {
             await this.dataSource.getRepository(PreferTranslation).upsert(
-              [{ prefer: { id }, locale, choiceOne: val.choiceOne, choiceTwo: val.choiceTwo }],
+              [{ prefer: { id }, locale, choiceOne: (val!.choiceOne ?? '').trim(), choiceTwo: (val!.choiceTwo ?? '').trim() }],
               { conflictPaths: ['prefer', 'locale'], skipUpdateIfNoValuesChanged: true },
             );
           }

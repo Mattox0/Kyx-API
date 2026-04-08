@@ -8,18 +8,23 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Gender } from '../../../types/enums/Gender.js';
-import { NeverHaveTranslationItemDto } from './create-never-have.dto.js';
+
+class UpdateNeverHaveTranslationItemDto {
+  @IsString()
+  @IsOptional()
+  question?: string;
+}
 
 class UpdateNeverHaveTranslationsDto {
   @IsOptional()
   @ValidateNested()
-  @Type(() => NeverHaveTranslationItemDto)
-  fr?: NeverHaveTranslationItemDto | null;
+  @Type(() => UpdateNeverHaveTranslationItemDto)
+  fr?: UpdateNeverHaveTranslationItemDto | null;
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => NeverHaveTranslationItemDto)
-  en?: NeverHaveTranslationItemDto | null;
+  @Type(() => UpdateNeverHaveTranslationItemDto)
+  en?: UpdateNeverHaveTranslationItemDto | null;
 }
 
 export class UpdateNeverHaveDto {

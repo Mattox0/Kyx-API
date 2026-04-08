@@ -8,18 +8,27 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Gender } from '../../../types/enums/Gender.js';
-import { PreferTranslationItemDto } from './create-prefer.dto.js';
+
+class UpdatePreferTranslationItemDto {
+  @IsString()
+  @IsOptional()
+  choiceOne?: string;
+
+  @IsString()
+  @IsOptional()
+  choiceTwo?: string;
+}
 
 class UpdatePreferTranslationsDto {
   @IsOptional()
   @ValidateNested()
-  @Type(() => PreferTranslationItemDto)
-  fr?: PreferTranslationItemDto | null;
+  @Type(() => UpdatePreferTranslationItemDto)
+  fr?: UpdatePreferTranslationItemDto | null;
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => PreferTranslationItemDto)
-  en?: PreferTranslationItemDto | null;
+  @Type(() => UpdatePreferTranslationItemDto)
+  en?: UpdatePreferTranslationItemDto | null;
 }
 
 export class UpdatePreferDto {
