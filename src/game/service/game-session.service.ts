@@ -373,7 +373,7 @@ export class GameSessionService {
     locale: string,
     filters?: { allowedMentionedGenders?: Gender[] },
   ): Promise<{ entity: Question; questionType: string } | null> {
-    const configs: Record<
+    const configs: Partial<Record<
       GameType,
       {
         entity: any;
@@ -381,7 +381,7 @@ export class GameSessionService {
         questionType: string;
         flatten: (raw: any, t: any) => Question;
       }
-    > = {
+    >> = {
       [GameType.NEVER_HAVE]: {
         entity: NeverHave,
         alias: 'neverHave',

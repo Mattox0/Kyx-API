@@ -6,6 +6,7 @@ import { CreateModeDto } from '../dto/create-mode.dto.js';
 import { UpdateModeDto } from '../dto/update-mode.dto.js';
 import { GameType } from '../../../types/enums/GameType.js';
 import { DEFAULT_LOCALE } from '../../config/languages.js';
+import { Purity } from '../../test-purity/entities/purity.entity.js';
 
 function toTranslationsMap(translations: ModeTranslation[]): Record<string, { name: string; description: string }> {
   return Object.fromEntries(translations.map((t) => [t.locale, { name: t.name, description: t.description }]));
@@ -84,6 +85,7 @@ export class ModeService {
       'never-have': GameType.NEVER_HAVE,
       'prefer': GameType.PREFER,
       'truth-dare': GameType.TRUTH_DARE,
+      'test-purity': GameType.TEST_PURITY,
     };
 
     const gameType = gameTypeMap[gameName];
@@ -100,6 +102,21 @@ export class ModeService {
       .orderBy('mode.position', 'ASC')
       .getMany();
 
+    let questionCountByMode: Record<string, number> = {};
+    if (gameType === GameType.TEST_PURITY && modes.length > 0) {
+      const modeIds = modes.map((m) => m.id);
+      const rows = await this.dataSource
+        .createQueryBuilder()
+        .select('"purity"."modeId"', 'modeId')
+        .addSelect('COUNT(*)', 'count')
+        .from(Purity, 'purity')
+        .where('"purity"."modeId" IN (:...modeIds)', { modeIds })
+        .groupBy('"purity"."modeId"')
+        .getRawMany<{ modeId: string; count: string }>();
+
+      questionCountByMode = Object.fromEntries(rows.map((r) => [r.modeId, Number(r.count)]));
+    }
+
     return modes.map((m) => {
       const translations = m.translations ?? [];
       const translation = translations.find((t) => t.locale === locale)
@@ -113,6 +130,7 @@ export class ModeService {
         position: m.position,
         name: translation?.name ?? null,
         description: translation?.description ?? null,
+        ...(gameType === GameType.TEST_PURITY && { questionCount: questionCountByMode[m.id] ?? 0 }),
       };
     });
   }

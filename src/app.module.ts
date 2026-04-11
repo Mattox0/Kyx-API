@@ -34,6 +34,11 @@ import { RevenueCatModule } from './revenuecat/revenuecat.module.js';
 import { FinanceModule } from './finance/finance.module.js';
 import { NotificationModule } from './notification/notification.module.js';
 import { DeviceToken } from './notification/entities/device-token.entity.js';
+import { PurityModule } from './test-purity/purity.module.js';
+import { Purity } from './test-purity/entities/purity.entity.js';
+import { PurityTranslation } from './test-purity/entities/purity-translations.entity.js';
+import { PurityAnswer } from './test-purity/entities/purity-answer.entity.js';
+import { PurityAnswerTranslation } from './test-purity/entities/purity-answer-translation.entity.js';
 
 @Module({
   imports: [
@@ -50,7 +55,7 @@ import { DeviceToken } from './notification/entities/device-token.entity.js';
         username: configService.getOrThrow<string>('POSTGRES_USER'),
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
-        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken],
+        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken, Purity, PurityTranslation, PurityAnswer, PurityAnswerTranslation],
         autoLoadEntities: true,
         synchronize: false,
         extra: {
@@ -76,6 +81,7 @@ import { DeviceToken } from './notification/entities/device-token.entity.js';
     RevenueCatModule,
     FinanceModule,
     NotificationModule,
+    PurityModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],
