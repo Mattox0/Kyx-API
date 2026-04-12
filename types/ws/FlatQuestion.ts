@@ -33,4 +33,8 @@ export interface FlatTruthDare extends FlatBase {
   type: ChallengeType;
 }
 
-export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare;
+export interface FlatMostLikelyTo extends FlatBase {
+  question: string;
+}
+
+export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare | FlatMostLikelyTo;

@@ -39,6 +39,9 @@ import { Purity } from './test-purity/entities/purity.entity.js';
 import { PurityTranslation } from './test-purity/entities/purity-translations.entity.js';
 import { PurityAnswer } from './test-purity/entities/purity-answer.entity.js';
 import { PurityAnswerTranslation } from './test-purity/entities/purity-answer-translation.entity.js';
+import { MostLikelyToModule } from './most-likely-to/most-likely-to.module.js';
+import { MostLikelyTo } from './most-likely-to/entities/most-likely-to.entity.js';
+import { MostLikelyToTranslation } from './most-likely-to/entities/most-likely-to-translation.entity.js';
 
 @Module({
   imports: [
@@ -55,7 +58,7 @@ import { PurityAnswerTranslation } from './test-purity/entities/purity-answer-tr
         username: configService.getOrThrow<string>('POSTGRES_USER'),
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
-        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken, Purity, PurityTranslation, PurityAnswer, PurityAnswerTranslation],
+        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken, Purity, PurityTranslation, PurityAnswer, PurityAnswerTranslation, MostLikelyTo, MostLikelyToTranslation],
         autoLoadEntities: true,
         synchronize: false,
         extra: {
@@ -82,6 +85,7 @@ import { PurityAnswerTranslation } from './test-purity/entities/purity-answer-tr
     FinanceModule,
     NotificationModule,
     PurityModule,
+    MostLikelyToModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],

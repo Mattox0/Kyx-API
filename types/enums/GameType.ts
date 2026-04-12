@@ -3,4 +3,5 @@ export enum GameType {
   PREFER = 'prefer',
   TRUTH_DARE = 'truthDare',
   TEST_PURITY = 'testPurity',
+  MOST_LIKELY_TO = 'mostLikelyTo',
 }

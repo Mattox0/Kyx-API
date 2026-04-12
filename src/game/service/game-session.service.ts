@@ -14,10 +14,12 @@ import { Gender } from '../../../types/enums/Gender.js';
 import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
+import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
 import { Game } from '../entities/game.entity.js';
 import { DEFAULT_LOCALE } from '../../config/languages.js';
 import {
   FlatMode,
+  FlatMostLikelyTo,
   FlatNeverHave,
   FlatPrefer,
   FlatTruthDare,
@@ -312,7 +314,7 @@ export class GameSessionService {
     await this.resetAnswers(code);
 
     let userTarget: PlayerSession | null = null;
-    let userMentioned: PlayerSession | null = null;
+    let userMentioned: PlayerSession | null;
 
     const pickPlayer = (
       gender: Gender | null,
@@ -347,6 +349,11 @@ export class GameSessionService {
         prefer.choiceTwo.includes('{user}');
       const genderToUse =
         prefer.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
+      userMentioned = pickPlayer(genderToUse);
+    } else if (gameType === GameType.MOST_LIKELY_TO) {
+      const mostLikelyTo = question.entity as FlatMostLikelyTo;
+      const hasUserPlaceholder = mostLikelyTo.question.includes('{user}');
+      const genderToUse = mostLikelyTo.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
       userMentioned = pickPlayer(genderToUse);
     } else {
       const neverHave = question.entity as FlatNeverHave;
@@ -421,6 +428,19 @@ export class GameSessionService {
           mentionedUserGender: raw.mentionedUserGender,
           gender: raw.gender,
           type: raw.type,
+          question: t.question,
+        }),
+      },
+      [GameType.MOST_LIKELY_TO]: {
+        entity: MostLikelyTo,
+        alias: 'mostLikelyTo',
+        questionType: 'most-likely-to',
+        flatten: (raw, t): FlatMostLikelyTo => ({
+          id: raw.id,
+          mode: flattenMode(raw.mode, locale),
+          createdDate: raw.createdDate,
+          updatedDate: raw.updatedDate,
+          mentionedUserGender: raw.mentionedUserGender,
           question: t.question,
         }),
       },

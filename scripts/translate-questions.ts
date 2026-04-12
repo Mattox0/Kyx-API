@@ -224,6 +224,92 @@ async function translatePrefer(): Promise<void> {
   console.log('\n  Prefer terminé.');
 }
 
+async function translateTestPurity(): Promise<void> {
+  console.log('\n📋 TestPurity...');
+
+  const result = await pool.query(`
+    SELECT p.id, pt.question
+    FROM "purity" p
+    JOIN "purity-translation" pt ON pt."purityId" = p.id AND pt.locale = 'fr'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "purity-translation" x
+      WHERE x."purityId" = p.id AND x.locale = $1
+    )
+  `, [TARGET_LOCALE]);
+  const rows = result.rows as { id: string; question: string }[];
+
+  console.log(`  → ${rows.length} questions à traduire`);
+  if (rows.length === 0) return;
+
+  let done = 0;
+  for (const batch of chunks(rows, BATCH_SIZE)) {
+    const translated = await translateTexts(batch.map((r) => r.question));
+
+    if (!DRY_RUN) {
+      for (let i = 0; i < batch.length; i++) {
+        await pool.query(
+          `INSERT INTO "purity-translation" ("purityId", locale, question)
+           VALUES ($1, $2, $3)
+           ON CONFLICT ("purityId", locale) DO UPDATE SET question = EXCLUDED.question`,
+          [batch[i].id, TARGET_LOCALE, translated[i]],
+        );
+      }
+    } else {
+      batch.slice(0, 3).forEach((r, i) =>
+        console.log(`  [dry-run] ${r.question.slice(0, 60)} → ${translated[i].slice(0, 60)}`),
+      );
+    }
+
+    done += batch.length;
+    process.stdout.write(`\r  ✅ ${done}/${rows.length} (${Math.round((done / rows.length) * 100)}%)`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log('\n  TestPurity terminé.');
+}
+
+async function translateMostLikelyTo(): Promise<void> {
+  console.log('\n📋 MostLikelyTo...');
+
+  const result = await pool.query(`
+    SELECT mlt.id, mltt.question
+    FROM "most-likely-to" mlt
+    JOIN "most-likely-to-translation" mltt ON mltt."mostLikelyToId" = mlt.id AND mltt.locale = 'fr'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "most-likely-to-translation" x
+      WHERE x."mostLikelyToId" = mlt.id AND x.locale = $1
+    )
+  `, [TARGET_LOCALE]);
+  const rows = result.rows as { id: string; question: string }[];
+
+  console.log(`  → ${rows.length} questions à traduire`);
+  if (rows.length === 0) return;
+
+  let done = 0;
+  for (const batch of chunks(rows, BATCH_SIZE)) {
+    const translated = await translateTexts(batch.map((r) => r.question));
+
+    if (!DRY_RUN) {
+      for (let i = 0; i < batch.length; i++) {
+        await pool.query(
+          `INSERT INTO "most-likely-to-translation" ("mostLikelyToId", locale, question)
+           VALUES ($1, $2, $3)
+           ON CONFLICT ("mostLikelyToId", locale) DO UPDATE SET question = EXCLUDED.question`,
+          [batch[i].id, TARGET_LOCALE, translated[i]],
+        );
+      }
+    } else {
+      batch.slice(0, 3).forEach((r, i) =>
+        console.log(`  [dry-run] ${r.question.slice(0, 60)} → ${translated[i].slice(0, 60)}`),
+      );
+    }
+
+    done += batch.length;
+    process.stdout.write(`\r  ✅ ${done}/${rows.length} (${Math.round((done / rows.length) * 100)}%)`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log('\n  MostLikelyTo terminé.');
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -242,6 +328,8 @@ async function main() {
   if (!MODULE_FILTER || MODULE_FILTER === 'truthDare') await translateTruthDare();
   if (!MODULE_FILTER || MODULE_FILTER === 'neverHave') await translateNeverHave();
   if (!MODULE_FILTER || MODULE_FILTER === 'prefer') await translatePrefer();
+  if (!MODULE_FILTER || MODULE_FILTER === 'testPurity') await translateTestPurity();
+  if (!MODULE_FILTER || MODULE_FILTER === 'mostLikelyTo') await translateMostLikelyTo();
 
   console.log('\n🎉 Terminé !');
 }

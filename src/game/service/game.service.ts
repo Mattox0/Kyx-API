@@ -346,6 +346,12 @@ function buildCustomQuestionPool(customQuestions: CustomQuestionDto[]): CustomQu
         questionType: 'never-have',
       };
     }
+    if (cq.type === 'most-likely-to') {
+      return {
+        entity: { id, question: cq.question!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
+        questionType: 'most-likely-to',
+      };
+    }
     return {
       entity: { id, choiceOne: cq.choiceOne!, choiceTwo: cq.choiceTwo!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
       questionType: 'prefer',

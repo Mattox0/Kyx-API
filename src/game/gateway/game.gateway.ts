@@ -55,8 +55,8 @@ export class GameQuestionWebsocketGateway
 
     const game = await this.gameSessionService.getGame(code);
     if (!game) {
-      console.log(`[WS] Rejected: game not found (code: ${code})`);
-      client.emit('error', { message: 'Game not found' });
+      console.log(`[WS] Rejected: game not found or session expired (code: ${code})`);
+      client.emit('gameNotFound');
       client.disconnect();
       return;
     }
@@ -225,6 +225,8 @@ export class GameQuestionWebsocketGateway
       return;
     }
 
+    const players = await this.gameSessionService.getPlayers(code);
+    this.server.to(`game:${code}`).emit('players', players);
     this.server.to(`game:${code}`).emit('answersCount', 0);
     this.server.to(`game:${code}`).emit('currentQuestion', result);
   }
