@@ -10,50 +10,80 @@ export class NotificationService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async registerToken(token: string, userId?: string): Promise<void> {
+  async registerToken(token: string, userId?: string, language?: string): Promise<void> {
     if (!Expo.isExpoPushToken(token)) {
       return;
     }
+
+    const lang = language === 'en' ? 'en' : 'fr';
 
     await this.dataSource
       .createQueryBuilder()
       .insert()
       .into(DeviceToken)
-      .values({ token, userId: userId ?? null })
-      .orUpdate(['userId'], ['token'])
+      .values({ token, userId: userId ?? null, language: lang })
+      .orUpdate(['userId', 'language'], ['token'])
       .execute();
   }
 
-  async sendToUsers(userIds: string[], title: string, body: string): Promise<{ sent: number; failed: number }> {
+  async sendToUsers(
+    userIds: string[],
+    titleFr: string,
+    bodyFr: string,
+    titleEn: string,
+    bodyEn: string,
+  ): Promise<{ sent: number; failed: number }> {
     const tokens = await this.dataSource
       .createQueryBuilder()
       .select('dt.token', 'token')
+      .addSelect('dt.language', 'language')
       .from(DeviceToken, 'dt')
       .where('dt.userId IN (:...userIds)', { userIds })
-      .getRawMany<{ token: string }>();
+      .getRawMany<{ token: string; language: string }>();
 
-    return this.sendChunks(tokens.map((t) => t.token), title, body);
+    return this.sendChunksLocalized(tokens, titleFr, bodyFr, titleEn, bodyEn);
   }
 
-  async sendToAll(title: string, body: string): Promise<{ sent: number; failed: number }> {
+  async sendToAll(
+    titleFr: string,
+    bodyFr: string,
+    titleEn: string,
+    bodyEn: string,
+  ): Promise<{ sent: number; failed: number }> {
     const tokens = await this.dataSource
       .createQueryBuilder()
       .select('dt.token', 'token')
+      .addSelect('dt.language', 'language')
       .from(DeviceToken, 'dt')
-      .getRawMany<{ token: string }>();
+      .getRawMany<{ token: string; language: string }>();
 
-    return this.sendChunks(tokens.map((t) => t.token), title, body);
+    return this.sendChunksLocalized(tokens, titleFr, bodyFr, titleEn, bodyEn);
   }
 
-  private async sendChunks(tokens: string[], title: string, body: string): Promise<{ sent: number; failed: number }> {
-    const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t));
+  private sendChunksLocalized(
+    tokens: { token: string; language: string }[],
+    titleFr: string,
+    bodyFr: string,
+    titleEn: string,
+    bodyEn: string,
+  ): Promise<{ sent: number; failed: number }> {
+    const withText = tokens.map(({ token, language }) => ({
+      token,
+      title: language === 'en' ? titleEn : titleFr,
+      body: language === 'en' ? bodyEn : bodyFr,
+    }));
+    return this.sendChunks(withText);
+  }
 
-    if (validTokens.length === 0) {
+  private async sendChunks(tokens: { token: string; title: string; body: string }[]): Promise<{ sent: number; failed: number }> {
+    const valid = tokens.filter((t) => Expo.isExpoPushToken(t.token));
+
+    if (valid.length === 0) {
       return { sent: 0, failed: 0 };
     }
 
-    const messages: ExpoPushMessage[] = validTokens.map((to) => ({
-      to,
+    const messages: ExpoPushMessage[] = valid.map(({ token, title, body }) => ({
+      to: token,
       title,
       body,
       sound: 'default',

@@ -21,6 +21,9 @@ export class DeviceToken {
   @Index()
   userId: string | null;
 
+  @Column({ type: 'varchar', length: 5, default: 'fr' })
+  language: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
