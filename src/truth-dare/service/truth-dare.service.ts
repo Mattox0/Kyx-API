@@ -327,6 +327,8 @@ export class TruthDareService {
   ): Promise<{ question: FlatTruthDare; questionType: 'truth-dare'; userTarget: UserSoloItemDto | null; userMentioned: UserSoloItemDto | null }[]> {
     const hasMen = dto.users.some((u) => u.gender === Gender.MAN);
     const hasWomen = dto.users.some((u) => u.gender === Gender.FEMALE);
+    const manCount = dto.users.filter((u) => u.gender === Gender.MAN).length;
+    const femaleCount = dto.users.filter((u) => u.gender === Gender.FEMALE).length;
 
     const allowedGenders: Gender[] = [Gender.ALL];
     if (hasMen) allowedGenders.push(Gender.MAN);
@@ -348,6 +350,19 @@ export class TruthDareService {
           .where('truthDare.modeId IN (:...modeIds)', { modeIds: dto.modes })
           .andWhere('truthDare.gender IN (:...genders)', { genders: allowedGenders })
           .andWhere('(truthDare.mentionedUserGender IS NULL OR truthDare.mentionedUserGender IN (:...allowedMentionedGenders))', { allowedMentionedGenders })
+          .andWhere(
+            `NOT (
+              truthDare.gender != 'ALL'
+              AND truthDare.mentionedUserGender IS NOT NULL
+              AND truthDare.mentionedUserGender != 'ALL'
+              AND truthDare.gender = truthDare.mentionedUserGender
+              AND (
+                (truthDare.gender = 'FEMALE' AND :femaleCount < 2)
+                OR (truthDare.gender = 'MAN' AND :manCount < 2)
+              )
+            )`,
+            { femaleCount, manCount },
+          )
           .orderBy('RANDOM()')
           .limit(dbLimit)
           .getRawMany<{ id: string }>();
@@ -385,10 +400,17 @@ export class TruthDareService {
           question: translation.question,
         };
 
-        const eligibleTargets =
+        let eligibleTargets =
           question.gender === Gender.MAN ? menUsers :
           question.gender === Gender.FEMALE ? womenUsers :
           dto.users;
+
+        // When gender=ALL and mentionedUserGender is specific, prefer a target of a different
+        // gender to preserve the mention pool
+        if (question.gender === Gender.ALL && question.mentionedUserGender && question.mentionedUserGender !== Gender.ALL) {
+          const nonConflicting = eligibleTargets.filter((u) => u.gender !== question.mentionedUserGender);
+          if (nonConflicting.length > 0) eligibleTargets = nonConflicting;
+        }
 
         const userTarget = pickRandom(eligibleTargets);
 
@@ -397,9 +419,7 @@ export class TruthDareService {
           const mentionedPool = dto.users.filter((u) => u !== userTarget && (
             question.mentionedUserGender === Gender.ALL || u.gender === question.mentionedUserGender
           ));
-          const fallbackPool = dto.users.filter((u) => u !== userTarget);
-          const pool = mentionedPool.length > 0 ? mentionedPool : fallbackPool;
-          userMentioned = pool.length > 0 ? pickRandom(pool) : null;
+          userMentioned = mentionedPool.length > 0 ? pickRandom(mentionedPool) : null;
         }
 
         return { question: flatQuestion, questionType: 'truth-dare' as const, userTarget, userMentioned };

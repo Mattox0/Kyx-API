@@ -53,6 +53,23 @@ export class GameSessionService {
     return data ? JSON.parse(data) : [];
   }
 
+  private async saveGame(code: string, game: GameSession): Promise<void> {
+    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+  }
+
+  private async savePlayers(code: string, players: PlayerSession[]): Promise<void> {
+    await this.redisService.setex(`game:${code}:players`, TTL, JSON.stringify(players));
+  }
+
+  private async finalizeGameInDb(gameId: string): Promise<void> {
+    await this.dataSource
+      .createQueryBuilder()
+      .update(Game)
+      .set({ endedAt: new Date(), code: null })
+      .where('id = :id', { id: gameId })
+      .execute();
+  }
+
   async addPlayer(
     code: string,
     player: PlayerSession,
@@ -72,11 +89,7 @@ export class GameSessionService {
       players.push(newPlayer);
     }
 
-    await this.redisService.setex(
-      `game:${code}:players`,
-      TTL,
-      JSON.stringify(players),
-    );
+    await this.savePlayers(code, players);
     return players;
   }
 
@@ -97,11 +110,7 @@ export class GameSessionService {
       players[index].answer = answer;
     }
 
-    await this.redisService.setex(
-      `game:${code}:players`,
-      TTL,
-      JSON.stringify(players),
-    );
+    await this.savePlayers(code, players);
 
     const allAnswered = players.every((p) => p.hasAnswered);
     const results = allAnswered ? this.computeResults(players) : null;
@@ -126,16 +135,8 @@ export class GameSessionService {
 
   private async resetAnswers(code: string): Promise<void> {
     const players = await this.getPlayers(code);
-    const reset = players.map((p) => ({
-      ...p,
-      hasAnswered: false,
-      answer: null,
-    }));
-    await this.redisService.setex(
-      `game:${code}:players`,
-      TTL,
-      JSON.stringify(reset),
-    );
+    const reset = players.map((p) => ({ ...p, hasAnswered: false, answer: null }));
+    await this.savePlayers(code, reset);
   }
 
   async setUserCurrentGame(userId: string, code: string): Promise<void> {
@@ -151,34 +152,21 @@ export class GameSessionService {
   }
 
   async removePlayer(code: string, socketId: string): Promise<PlayerSession[]> {
-    const players = (await this.getPlayers(code)).filter(
-      (p) => p.socketId !== socketId,
-    );
-    await this.redisService.setex(
-      `game:${code}:players`,
-      TTL,
-      JSON.stringify(players),
-    );
+    const players = (await this.getPlayers(code)).filter((p) => p.socketId !== socketId);
+    await this.savePlayers(code, players);
     return players;
   }
 
-  async transferHost(
-    code: string,
-    newHostId: string,
-  ): Promise<PlayerSession[]> {
+  async transferHost(code: string, newHostId: string): Promise<PlayerSession[]> {
     const game = await this.getGame(code);
     if (!game) return [];
 
     game.hostId = newHostId;
-    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+    await this.saveGame(code, game);
 
     const players = await this.getPlayers(code);
     const updated = players.map((p) => ({ ...p, isHost: p.id === newHostId }));
-    await this.redisService.setex(
-      `game:${code}:players`,
-      TTL,
-      JSON.stringify(updated),
-    );
+    await this.savePlayers(code, updated);
     return updated;
   }
 
@@ -193,12 +181,7 @@ export class GameSessionService {
   async cleanupGame(code: string): Promise<void> {
     const game = await this.getGame(code);
     if (game) {
-      await this.dataSource
-        .createQueryBuilder()
-        .update(Game)
-        .set({ endedAt: new Date(), code: null })
-        .where('id = :id', { id: game.gameId })
-        .execute();
+      await this.finalizeGameInDb(game.gameId);
     }
 
     await this.redisService.del(`game:${code}`);
@@ -209,15 +192,10 @@ export class GameSessionService {
     const game = await this.getGame(code);
     if (!game) return;
 
-    await this.dataSource
-      .createQueryBuilder()
-      .update(Game)
-      .set({ endedAt: new Date(), code: null })
-      .where('id = :id', { id: game.gameId })
-      .execute();
+    await this.finalizeGameInDb(game.gameId);
 
     game.status = GameStatus.FINISHED;
-    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+    await this.saveGame(code, game);
   }
 
   async restartGame(code: string): Promise<void> {
@@ -248,11 +226,7 @@ export class GameSessionService {
       customQuestionsPool,
       remainingCustomQuestions: shuffle([...customQuestionsPool]),
     };
-    await this.redisService.setex(
-      `game:${code}`,
-      TTL,
-      JSON.stringify(resetSession),
-    );
+    await this.saveGame(code, resetSession);
     await this.resetAnswers(code);
   }
 
@@ -260,13 +234,11 @@ export class GameSessionService {
     const game = await this.getGame(code);
     if (!game) return;
     game.status = GameStatus.IN_PROGRESS;
-    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+    await this.saveGame(code, game);
     return game;
   }
 
-  async getNextQuestion(
-    code: string,
-  ): Promise<{
+  async getNextQuestion(code: string): Promise<{
     question: Question;
     questionType: string;
     userTarget: PlayerSession | null;
@@ -274,95 +246,24 @@ export class GameSessionService {
     questionNumber: number;
   } | null> {
     const game = await this.getGame(code);
-    if (!game) return null;
-
-    const { gameType, modeIds, previousQuestionsIds, locale } = game;
-
-    if (previousQuestionsIds.length >= 50) return null;
+    if (!game || game.previousQuestionsIds.length >= 50) return null;
 
     const players = await this.getPlayers(code);
-    const hasMen = players.some((p) => p.gender === Gender.MAN);
-    const hasWomen = players.some((p) => p.gender === Gender.FEMALE);
-    const allowedMentionedGenders: Gender[] = [Gender.ALL];
-    if (hasMen) allowedMentionedGenders.push(Gender.MAN);
-    if (hasWomen) allowedMentionedGenders.push(Gender.FEMALE);
+    const allowedMentionedGenders = this.computeAllowedGenders(players);
+    const genderCounts = this.computeGenderCounts(players);
 
-    const remaining = game.remainingCustomQuestions ?? [];
-    const slotsLeft = 50 - previousQuestionsIds.length;
-    const mustServeCustom = remaining.length >= slotsLeft;
-    const serveCustom =
-      remaining.length > 0 && (mustServeCustom || Math.random() < 0.5);
+    const question = await this.pickQuestion(game, allowedMentionedGenders, genderCounts);
+    if (!question) return null;
 
-    let question: CustomQuestionEntry;
-    if (serveCustom) {
-      question = remaining[0];
-      game.remainingCustomQuestions = remaining.slice(1);
-    } else {
-      const fetched = await this.fetchQuestion(
-        gameType,
-        modeIds,
-        previousQuestionsIds,
-        locale ?? DEFAULT_LOCALE,
-        { allowedMentionedGenders },
-      );
-      if (!fetched) return null;
-      question = fetched;
-    }
-
-    game.previousQuestionsIds = [...previousQuestionsIds, question.entity.id];
+    game.previousQuestionsIds = [...game.previousQuestionsIds, question.entity.id];
     game.currentQuestion = question.entity;
     await this.resetAnswers(code);
 
-    let userTarget: PlayerSession | null = null;
-    let userMentioned: PlayerSession | null;
-
-    const pickPlayer = (
-      gender: Gender | null,
-      exclude?: string,
-    ): PlayerSession | null => {
-      if (gender === null) return null;
-      const eligible = players.filter(
-        (p) =>
-          p.id !== exclude && (gender === Gender.ALL || p.gender === gender),
-      );
-      const pool =
-        eligible.length > 0
-          ? eligible
-          : players.filter((p) => p.id !== exclude);
-      return pool[Math.floor(Math.random() * pool.length)] ?? null;
-    };
-
-    if (gameType === GameType.TRUTH_DARE) {
-      const truthDare = question.entity as FlatTruthDare;
-      const eligible = players.filter(
-        (player) =>
-          truthDare.gender === Gender.ALL || player.gender === truthDare.gender,
-      );
-      const targetPool = eligible.length > 0 ? eligible : players;
-      userTarget =
-        targetPool[Math.floor(Math.random() * targetPool.length)] ?? null;
-      userMentioned = pickPlayer(truthDare.mentionedUserGender, userTarget?.id);
-    } else if (gameType === GameType.PREFER) {
-      const prefer = question.entity as FlatPrefer;
-      const hasUserPlaceholder =
-        prefer.choiceOne.includes('{user}') ||
-        prefer.choiceTwo.includes('{user}');
-      const genderToUse =
-        prefer.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
-      userMentioned = pickPlayer(genderToUse);
-    } else if (gameType === GameType.MOST_LIKELY_TO) {
-      const mostLikelyTo = question.entity as FlatMostLikelyTo;
-      const hasUserPlaceholder = mostLikelyTo.question.includes('{user}');
-      const genderToUse = mostLikelyTo.mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
-      userMentioned = pickPlayer(genderToUse);
-    } else {
-      const neverHave = question.entity as FlatNeverHave;
-      userMentioned = pickPlayer(neverHave.mentionedUserGender);
-    }
+    const { userTarget, userMentioned } = this.resolveTargets(game.gameType, question.entity, players);
 
     game.currentUserTargetId = userTarget?.id ?? null;
     game.currentUserMentionedId = userMentioned?.id ?? null;
-    await this.redisService.setex(`game:${code}`, TTL, JSON.stringify(game));
+    await this.saveGame(code, game);
 
     return {
       question: question.entity,
@@ -373,12 +274,92 @@ export class GameSessionService {
     };
   }
 
+  private computeAllowedGenders(players: PlayerSession[]): Gender[] {
+    const allowed: Gender[] = [Gender.ALL];
+    if (players.some((p) => p.gender === Gender.MAN)) allowed.push(Gender.MAN);
+    if (players.some((p) => p.gender === Gender.FEMALE)) allowed.push(Gender.FEMALE);
+    return allowed;
+  }
+
+  private computeGenderCounts(players: PlayerSession[]): Record<Gender, number> {
+    return {
+      [Gender.MAN]: players.filter((p) => p.gender === Gender.MAN).length,
+      [Gender.FEMALE]: players.filter((p) => p.gender === Gender.FEMALE).length,
+      [Gender.ALL]: players.length,
+    };
+  }
+
+  private async pickQuestion(
+    game: GameSession,
+    allowedMentionedGenders: Gender[],
+    genderCounts: Record<Gender, number>,
+  ): Promise<CustomQuestionEntry | null> {
+    const { gameType, modeIds, previousQuestionsIds, locale } = game;
+    const remaining = game.remainingCustomQuestions ?? [];
+    const slotsLeft = 50 - previousQuestionsIds.length;
+    const mustServeCustom = remaining.length >= slotsLeft;
+    const serveCustom = remaining.length > 0 && (mustServeCustom || Math.random() < 0.5);
+
+    if (serveCustom) {
+      game.remainingCustomQuestions = remaining.slice(1);
+      return remaining[0];
+    }
+
+    return this.fetchQuestion(gameType, modeIds, previousQuestionsIds, locale ?? DEFAULT_LOCALE, { allowedMentionedGenders, genderCounts });
+  }
+
+  private pickPlayer(players: PlayerSession[], gender: Gender | null, exclude?: string): PlayerSession | null {
+    if (gender === null) return null;
+    const eligible = players.filter((p) => p.id !== exclude && (gender === Gender.ALL || p.gender === gender));
+    return eligible[Math.floor(Math.random() * eligible.length)] ?? null;
+  }
+
+  private resolveTargets(
+    gameType: GameType,
+    entity: Question,
+    players: PlayerSession[],
+  ): { userTarget: PlayerSession | null; userMentioned: PlayerSession | null } {
+    if (gameType === GameType.TRUTH_DARE) {
+      const { gender, mentionedUserGender } = entity as FlatTruthDare;
+      let eligible = players.filter((p) => gender === Gender.ALL || p.gender === gender);
+
+      // When gender=ALL and mentionedUserGender is specific, prefer a target of a different
+      // gender to preserve the mention pool (avoids sole-female/male being both target and mention)
+      if (mentionedUserGender && mentionedUserGender !== Gender.ALL) {
+        const nonConflicting = eligible.filter((p) => p.gender !== mentionedUserGender);
+        if (nonConflicting.length > 0) eligible = nonConflicting;
+        // If all eligible are the same gender as mentionedUserGender, the DB already
+        // guaranteed count >= 2 for that gender, so pickPlayer will still find a valid mention
+      }
+
+      const userTarget = eligible[Math.floor(Math.random() * eligible.length)] ?? null;
+      return { userTarget, userMentioned: this.pickPlayer(players, mentionedUserGender, userTarget?.id) };
+    }
+
+    if (gameType === GameType.PREFER) {
+      const { choiceOne, choiceTwo, mentionedUserGender } = entity as FlatPrefer;
+      const hasUserPlaceholder = choiceOne.includes('{user}') || choiceTwo.includes('{user}');
+      const genderToUse = mentionedUserGender ?? (hasUserPlaceholder ? Gender.ALL : null);
+      return { userTarget: null, userMentioned: this.pickPlayer(players, genderToUse) };
+    }
+
+    if (gameType === GameType.MOST_LIKELY_TO) {
+      const { question, mentionedUserGender } = entity as FlatMostLikelyTo;
+      const genderToUse = mentionedUserGender ?? (question.includes('{user}') ? Gender.ALL : null);
+      return { userTarget: null, userMentioned: this.pickPlayer(players, genderToUse) };
+    }
+
+    // NeverHave (default)
+    const { mentionedUserGender } = entity as FlatNeverHave;
+    return { userTarget: null, userMentioned: this.pickPlayer(players, mentionedUserGender) };
+  }
+
   private async fetchQuestion(
     gameType: GameType,
     modeIds: string[],
     previousIds: string[],
     locale: string,
-    filters?: { allowedMentionedGenders?: Gender[] },
+    filters?: { allowedMentionedGenders?: Gender[]; genderCounts?: Record<Gender, number> },
   ): Promise<{ entity: Question; questionType: string } | null> {
     const configs: Partial<Record<
       GameType,
@@ -468,6 +449,33 @@ export class GameSessionService {
       );
     }
 
+    // TruthDare: also filter on the `gender` field (determines userTarget gender)
+    if (filters?.allowedMentionedGenders && gameType === GameType.TRUTH_DARE) {
+      idQb.andWhere(
+        `(${config.alias}.gender IS NULL OR ${config.alias}.gender IN (:...allowedTargetGenders))`,
+        { allowedTargetGenders: filters.allowedMentionedGenders },
+      );
+    }
+
+    // TruthDare: exclude questions where gender = mentionedUserGender (same specific gender)
+    // but fewer than 2 players of that gender exist — target and mention would conflict
+    if (gameType === GameType.TRUTH_DARE && filters?.genderCounts) {
+      const { genderCounts } = filters;
+      idQb.andWhere(
+        `NOT (
+          ${config.alias}.gender != 'ALL'
+          AND ${config.alias}.mentionedUserGender IS NOT NULL
+          AND ${config.alias}.mentionedUserGender != 'ALL'
+          AND ${config.alias}.gender = ${config.alias}.mentionedUserGender
+          AND (
+            (${config.alias}.gender = 'FEMALE' AND :femaleCount < 2)
+            OR (${config.alias}.gender = 'MAN' AND :manCount < 2)
+          )
+        )`,
+        { femaleCount: genderCounts[Gender.FEMALE], manCount: genderCounts[Gender.MAN] },
+      );
+    }
+
     const idResult = await idQb.getRawOne<{ id: string }>();
     if (!idResult) return null;
 
@@ -486,7 +494,6 @@ export class GameSessionService {
     const translation =
       translations.find((t) => t.locale === locale)
       ?? translations.find((t) => t.locale === DEFAULT_LOCALE)
-      ?? translations[0];
     if (!translation) return null;
 
     return {
