@@ -37,4 +37,9 @@ export interface FlatMostLikelyTo extends FlatBase {
   question: string;
 }
 
-export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare | FlatMostLikelyTo;
+export interface FlatTenBut extends FlatBase {
+  score: number;
+  question: string;
+}
+
+export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare | FlatMostLikelyTo | FlatTenBut;

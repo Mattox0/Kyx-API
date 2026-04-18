@@ -87,6 +87,7 @@ export class ModeService {
       'truth-dare': GameType.TRUTH_DARE,
       'test-purity': GameType.TEST_PURITY,
       'most-likely-to': GameType.MOST_LIKELY_TO,
+      'ten-but': GameType.TEN_BUT,
     };
 
     const gameType = gameTypeMap[gameName];

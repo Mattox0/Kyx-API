@@ -1,10 +1,10 @@
-import { IsIn, IsNotEmpty, IsString, ValidateIf } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 
 export class CustomQuestionDto {
-  @IsIn(['never-have', 'truth-dare', 'prefer', 'most-likely-to'])
-  type: 'never-have' | 'truth-dare' | 'prefer' | 'most-likely-to';
+  @IsIn(['never-have', 'truth-dare', 'prefer', 'most-likely-to', 'ten-but'])
+  type: 'never-have' | 'truth-dare' | 'prefer' | 'most-likely-to' | 'ten-but';
 
-  @ValidateIf((o) => o.type === 'never-have' || o.type === 'truth-dare' || o.type === 'most-likely-to')
+  @ValidateIf((o) => o.type === 'never-have' || o.type === 'truth-dare' || o.type === 'most-likely-to' || o.type === 'ten-but')
   @IsString()
   @IsNotEmpty()
   question?: string;
@@ -22,4 +22,9 @@ export class CustomQuestionDto {
   @IsString()
   @IsNotEmpty()
   choiceTwo?: string;
+
+  @ValidateIf((o) => o.type === 'ten-but')
+  @IsInt()
+  @IsOptional()
+  score?: number;
 }

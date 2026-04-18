@@ -310,6 +310,49 @@ async function translateMostLikelyTo(): Promise<void> {
   console.log('\n  MostLikelyTo terminé.');
 }
 
+async function translateTenBut(): Promise<void> {
+  console.log('\n📋 TenBut...');
+
+  const result = await pool.query(`
+    SELECT tb.id, tbt.question
+    FROM "ten-but" tb
+    JOIN "ten-but-translation" tbt ON tbt."tenButId" = tb.id AND tbt.locale = 'fr'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "ten-but-translation" x
+      WHERE x."tenButId" = tb.id AND x.locale = $1
+    )
+  `, [TARGET_LOCALE]);
+  const rows = result.rows as { id: string; question: string }[];
+
+  console.log(`  → ${rows.length} questions à traduire`);
+  if (rows.length === 0) return;
+
+  let done = 0;
+  for (const batch of chunks(rows, BATCH_SIZE)) {
+    const translated = await translateTexts(batch.map((r) => r.question));
+
+    if (!DRY_RUN) {
+      for (let i = 0; i < batch.length; i++) {
+        await pool.query(
+          `INSERT INTO "ten-but-translation" ("tenButId", locale, question)
+           VALUES ($1, $2, $3)
+           ON CONFLICT ("tenButId", locale) DO UPDATE SET question = EXCLUDED.question`,
+          [batch[i].id, TARGET_LOCALE, translated[i]],
+        );
+      }
+    } else {
+      batch.slice(0, 3).forEach((r, i) =>
+        console.log(`  [dry-run] ${r.question.slice(0, 60)} → ${translated[i].slice(0, 60)}`),
+      );
+    }
+
+    done += batch.length;
+    process.stdout.write(`\r  ✅ ${done}/${rows.length} (${Math.round((done / rows.length) * 100)}%)`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log('\n  TenBut terminé.');
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -330,6 +373,7 @@ async function main() {
   if (!MODULE_FILTER || MODULE_FILTER === 'prefer') await translatePrefer();
   if (!MODULE_FILTER || MODULE_FILTER === 'testPurity') await translateTestPurity();
   if (!MODULE_FILTER || MODULE_FILTER === 'mostLikelyTo') await translateMostLikelyTo();
+  if (!MODULE_FILTER || MODULE_FILTER === 'tenBut') await translateTenBut();
 
   console.log('\n🎉 Terminé !');
 }

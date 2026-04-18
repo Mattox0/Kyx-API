@@ -6,12 +6,14 @@ import { UpdateReportDto } from '../dto/update-report.dto.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
 import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
+import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
+import { TenBut } from '../../ten-but/entities/ten-but.entity.js';
 
 @Injectable()
 export class ReportService {
   constructor(private readonly dataSource: DataSource) {}
 
-  private async resolveQuestion(questionId: string): Promise<{ truthDare?: { id: string }; neverHave?: { id: string }; prefer?: { id: string } }> {
+  private async resolveQuestion(questionId: string): Promise<{ truthDare?: { id: string }; neverHave?: { id: string }; prefer?: { id: string }; mostLikelyTo?: { id: string }; tenBut?: { id: string } }> {
     const truthDare = await this.dataSource.getRepository(TruthDare).findOne({ where: { id: questionId } });
     if (truthDare) return { truthDare: { id: questionId } };
 
@@ -20,6 +22,12 @@ export class ReportService {
 
     const prefer = await this.dataSource.getRepository(Prefer).findOne({ where: { id: questionId } });
     if (prefer) return { prefer: { id: questionId } };
+
+    const mostLikelyTo = await this.dataSource.getRepository(MostLikelyTo).findOne({ where: { id: questionId } });
+    if (mostLikelyTo) return { mostLikelyTo: { id: questionId } };
+
+    const tenBut = await this.dataSource.getRepository(TenBut).findOne({ where: { id: questionId } });
+    if (tenBut) return { tenBut: { id: questionId } };
 
     throw new NotFoundException(`Question ${questionId} not found`);
   }
@@ -32,6 +40,8 @@ export class ReportService {
       .leftJoinAndSelect('report.truthDare', 'truthDare')
       .leftJoinAndSelect('report.neverHave', 'neverHave')
       .leftJoinAndSelect('report.prefer', 'prefer')
+      .leftJoinAndSelect('report.mostLikelyTo', 'mostLikelyTo')
+      .leftJoinAndSelect('report.tenBut', 'tenBut')
       .leftJoinAndSelect('report.user', 'user');
 
     if (search) {
@@ -68,6 +78,8 @@ export class ReportService {
       .leftJoinAndSelect('report.truthDare', 'truthDare')
       .leftJoinAndSelect('report.neverHave', 'neverHave')
       .leftJoinAndSelect('report.prefer', 'prefer')
+      .leftJoinAndSelect('report.mostLikelyTo', 'mostLikelyTo')
+      .leftJoinAndSelect('report.tenBut', 'tenBut')
       .leftJoinAndSelect('report.user', 'user')
       .where('report.id = :id', { id })
       .getOne();
@@ -104,6 +116,8 @@ export class ReportService {
       updateData.truthDare = null;
       updateData.neverHave = null;
       updateData.prefer = null;
+      updateData.mostLikelyTo = null;
+      updateData.tenBut = null;
       Object.assign(updateData, questionRelation);
     }
 

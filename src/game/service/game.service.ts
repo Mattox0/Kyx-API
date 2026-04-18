@@ -352,6 +352,12 @@ function buildCustomQuestionPool(customQuestions: CustomQuestionDto[]): CustomQu
         questionType: 'most-likely-to',
       };
     }
+    if (cq.type === 'ten-but') {
+      return {
+        entity: { id, score: (cq as any).score ?? 10, question: cq.question!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
+        questionType: 'ten-but',
+      };
+    }
     return {
       entity: { id, choiceOne: cq.choiceOne!, choiceTwo: cq.choiceTwo!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
       questionType: 'prefer',

@@ -15,6 +15,7 @@ import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
 import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
+import { TenBut } from '../../ten-but/entities/ten-but.entity.js';
 import { Game } from '../entities/game.entity.js';
 import { DEFAULT_LOCALE } from '../../config/languages.js';
 import {
@@ -22,6 +23,7 @@ import {
   FlatMostLikelyTo,
   FlatNeverHave,
   FlatPrefer,
+  FlatTenBut,
   FlatTruthDare,
 } from '../../../types/ws/FlatQuestion.js';
 import { ModeTranslation } from '../../mode/entities/mode-translation.entity.js';
@@ -349,7 +351,12 @@ export class GameSessionService {
       return { userTarget: null, userMentioned: this.pickPlayer(players, genderToUse) };
     }
 
-    // NeverHave (default)
+    if (gameType === GameType.TEN_BUT) {
+      const { question, mentionedUserGender } = entity as FlatTenBut;
+      const genderToUse = mentionedUserGender ?? (question.includes('{user}') ? Gender.ALL : null);
+      return { userTarget: null, userMentioned: this.pickPlayer(players, genderToUse) };
+    }
+
     const { mentionedUserGender } = entity as FlatNeverHave;
     return { userTarget: null, userMentioned: this.pickPlayer(players, mentionedUserGender) };
   }
@@ -422,6 +429,20 @@ export class GameSessionService {
           createdDate: raw.createdDate,
           updatedDate: raw.updatedDate,
           mentionedUserGender: raw.mentionedUserGender,
+          question: t.question,
+        }),
+      },
+      [GameType.TEN_BUT]: {
+        entity: TenBut,
+        alias: 'tenBut',
+        questionType: 'ten-but',
+        flatten: (raw, t): FlatTenBut => ({
+          id: raw.id,
+          mode: flattenMode(raw.mode, locale),
+          createdDate: raw.createdDate,
+          updatedDate: raw.updatedDate,
+          mentionedUserGender: raw.mentionedUserGender ?? null,
+          score: raw.score,
           question: t.question,
         }),
       },
