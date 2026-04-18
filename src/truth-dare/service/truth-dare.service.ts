@@ -355,7 +355,7 @@ export class TruthDareService {
               truthDare.gender != 'ALL'
               AND truthDare.mentionedUserGender IS NOT NULL
               AND truthDare.mentionedUserGender != 'ALL'
-              AND truthDare.gender = truthDare.mentionedUserGender
+              AND "truthDare"."gender" = "truthDare"."mentionedUserGender"
               AND (
                 (truthDare.gender = 'FEMALE' AND :femaleCount < 2)
                 OR (truthDare.gender = 'MAN' AND :manCount < 2)
