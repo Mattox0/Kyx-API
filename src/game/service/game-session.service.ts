@@ -487,7 +487,7 @@ export class GameSessionService {
           ${config.alias}.gender != 'ALL'
           AND ${config.alias}.mentionedUserGender IS NOT NULL
           AND ${config.alias}.mentionedUserGender != 'ALL'
-          AND "${config.alias}"."gender" = "${config.alias}"."mentionedUserGender"
+          AND "${config.alias}"."gender"::text = "${config.alias}"."mentionedUserGender"::text
           AND (
             (${config.alias}.gender = 'FEMALE' AND :femaleCount < 2)
             OR (${config.alias}.gender = 'MAN' AND :manCount < 2)
