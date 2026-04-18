@@ -120,6 +120,15 @@ export class TenButService {
   }
 
   async create(dto: CreateTenButDto) {
+    const frQuestion = dto.translations[DEFAULT_LOCALE]?.question?.trim().toLowerCase();
+    if (frQuestion) {
+      const existing = await this.dataSource
+        .createQueryBuilder(TenButTranslation, 't')
+        .where('LOWER(t.question) = :q', { q: frQuestion })
+        .getOne();
+      if (existing) throw new BadRequestException('Cette question existe déjà');
+    }
+
     try {
       const result = await this.dataSource
         .createQueryBuilder()
@@ -247,9 +256,22 @@ export class TenButService {
     let skipped = 0;
     const errors: string[] = [];
 
+    const existingQuestions = await this.dataSource
+      .createQueryBuilder(TenButTranslation, 't')
+      .select('LOWER(t.question)', 'question')
+      .getRawMany<{ question: string }>();
+
+    const existingSet = new Set(existingQuestions.map((r) => r.question.trim().toLowerCase()));
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       try {
+        const frQuestion = item.translations[DEFAULT_LOCALE]?.question?.trim().toLowerCase();
+        if (frQuestion && existingSet.has(frQuestion)) {
+          skipped++;
+          continue;
+        }
+
         const result = await this.dataSource
           .createQueryBuilder()
           .insert()
@@ -277,6 +299,7 @@ export class TenButService {
             .execute();
         }
 
+        if (frQuestion) existingSet.add(frQuestion);
         created++;
       } catch (error) {
         if (error.code === '23505') {
