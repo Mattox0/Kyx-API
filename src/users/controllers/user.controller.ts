@@ -10,6 +10,7 @@ import {
   Query,
   Req,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { type Request } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
@@ -17,6 +18,7 @@ import { UserService } from '../service/user.service.js';
 import { UpdateUserDto } from '../dto/update-user.dto.js';
 import { User } from '../entities/user.entity.js';
 import { auth } from '../../auth.js';
+import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js';
 
 @Controller('users')
 export class UserController {
@@ -72,6 +74,15 @@ export class UserController {
   ) {
     const available = await this.userService.checkNameAvailable(name, excludeId);
     return { available };
+  }
+
+  @Post(':id/coins')
+  @UseGuards(AdminAuthGuard)
+  async addCoinsAdmin(
+    @Param('id') id: string,
+    @Body() body: { amount: number },
+  ): Promise<void> {
+    await this.userService.addCoins(id, body.amount);
   }
 
   @Get(':id')

@@ -12,10 +12,20 @@ import { auth } from '../../auth.js';
 import { GameSessionService } from '../service/game-session.service.js';
 import { Gender } from '../../../types/enums/Gender.js';
 import { GameStatus } from '../../../types/ws/GameStatus.js';
+import { GameType } from '../../../types/enums/GameType.js';
 import {
   AvatarOptions,
   PlayerSession,
 } from '../../../types/ws/PlayerSession.js';
+
+const GAME_TYPE_TO_QUESTION_TYPE: Record<GameType, string> = {
+  [GameType.NEVER_HAVE]: 'never-have',
+  [GameType.PREFER]: 'prefer',
+  [GameType.TRUTH_DARE]: 'truth-dare',
+  [GameType.TEST_PURITY]: 'test-purity',
+  [GameType.MOST_LIKELY_TO]: 'most-likely-to',
+  [GameType.TEN_BUT]: 'ten-but',
+};
 
 @WebSocketGateway({ cors: '*', namespace: 'game', transports: ['websocket'] })
 export class GameQuestionWebsocketGateway
@@ -92,7 +102,7 @@ export class GameQuestionWebsocketGateway
         : null;
       this.server.to(client.id).emit('currentQuestion', {
         question: game.currentQuestion,
-        questionType: game.gameType,
+        questionType: GAME_TYPE_TO_QUESTION_TYPE[game.gameType],
         userTarget: currentUserTarget,
         userMentioned: currentUserMentioned,
         questionNumber: game.previousQuestionsIds.length,
@@ -147,8 +157,7 @@ export class GameQuestionWebsocketGateway
     const roomSize = (this.server as unknown as Namespace).adapter.rooms?.get(`game:${code}`)?.size ?? 0;
 
     if (roomSize === 0) {
-      await this.gameSessionService.cleanupGame(code);
-      console.log(`[Game ${code}] All players left, session cleaned up`);
+      console.log(`[Game ${code}] All players left room, session kept alive for reconnects`);
       return;
     }
 

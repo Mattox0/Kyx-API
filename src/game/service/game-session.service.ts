@@ -40,10 +40,26 @@ function flattenMode(mode: any, locale: string): FlatMode | null {
 
 @Injectable()
 export class GameSessionService {
+  private readonly locks = new Map<string, Promise<void>>();
+
   constructor(
     private readonly redisService: RedisService,
     private readonly dataSource: DataSource,
   ) {}
+
+  private async withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.locks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const next = new Promise<void>((r) => { release = r; });
+    this.locks.set(key, next);
+    try {
+      await existing;
+      return await fn();
+    } finally {
+      release();
+      if (this.locks.get(key) === next) this.locks.delete(key);
+    }
+  }
 
   async getGame(code: string): Promise<GameSession | null> {
     const data = await this.redisService.get(`game:${code}`);
@@ -104,20 +120,22 @@ export class GameSessionService {
     allAnswered: boolean;
     results: Record<string, number> | null;
   }> {
-    const players = await this.getPlayers(code);
+    return this.withLock(`submitAnswer:${code}`, async () => {
+      const players = await this.getPlayers(code);
 
-    const index = players.findIndex((p) => p.socketId === socketId);
-    if (index >= 0) {
-      players[index].hasAnswered = true;
-      players[index].answer = answer;
-    }
+      const index = players.findIndex((p) => p.socketId === socketId);
+      if (index >= 0) {
+        players[index].hasAnswered = true;
+        players[index].answer = answer;
+      }
 
-    await this.savePlayers(code, players);
+      await this.savePlayers(code, players);
 
-    const allAnswered = players.every((p) => p.hasAnswered);
-    const results = allAnswered ? this.computeResults(players) : null;
+      const allAnswered = players.every((p) => p.hasAnswered);
+      const results = allAnswered ? this.computeResults(players) : null;
 
-    return { players, allAnswered, results };
+      return { players, allAnswered, results };
+    });
   }
 
   computeResults(players: PlayerSession[]): Record<string, number> {
