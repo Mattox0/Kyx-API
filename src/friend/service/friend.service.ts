@@ -53,6 +53,10 @@ export class FriendService {
       .getOne();
 
     if (alreadyRequested) {
+      // Si l'autre personne a déjà envoyé une demande, on crée directement l'amitié
+      if (alreadyRequested.user.id === userRequested.id) {
+        return this.acceptRequest(alreadyRequested);
+      }
       throw new ConflictException(`Friend request already exists`);
     }
 
