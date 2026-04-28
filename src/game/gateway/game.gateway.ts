@@ -1,3 +1,4 @@
+import { OnApplicationBootstrap } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -25,13 +26,18 @@ const GAME_TYPE_TO_QUESTION_TYPE: Record<GameType, string> = {
   [GameType.TEST_PURITY]: 'test-purity',
   [GameType.MOST_LIKELY_TO]: 'most-likely-to',
   [GameType.TEN_BUT]: 'ten-but',
+  [GameType.QUIZZ]: 'quizz',
 };
+
+const QUIZZ_TIMER_SECONDS = 30;
 
 @WebSocketGateway({ cors: '*', namespace: 'game', transports: ['websocket'] })
 export class GameQuestionWebsocketGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationBootstrap
 {
   @WebSocketServer() server: Server;
+
+  private readonly questionTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(private readonly gameSessionService: GameSessionService) {}
 
@@ -83,6 +89,8 @@ export class GameQuestionWebsocketGateway
       avatarOptions: session.user.avatarOptions as AvatarOptions,
       hasAnswered: false,
       answer: null,
+      score: 0,
+      answeredAt: null,
     });
 
     await this.gameSessionService.setUserCurrentGame(session.user.id, code);
@@ -106,6 +114,7 @@ export class GameQuestionWebsocketGateway
         userTarget: currentUserTarget,
         userMentioned: currentUserMentioned,
         questionNumber: game.previousQuestionsIds.length,
+        questionStartedAt: game.questionStartedAt,
       });
     }
 
@@ -157,6 +166,7 @@ export class GameQuestionWebsocketGateway
     const roomSize = (this.server as unknown as Namespace).adapter.rooms?.get(`game:${code}`)?.size ?? 0;
 
     if (roomSize === 0) {
+      this.cancelQuizzTimer(code);
       console.log(`[Game ${code}] All players left room, session kept alive for reconnects`);
       return;
     }
@@ -186,6 +196,7 @@ export class GameQuestionWebsocketGateway
       await this.gameSessionService.restartGame(client.data.code);
     }
 
+    this.cancelQuizzTimer(client.data.code);
     this.server.to(`game:${client.data.code}`).emit('answersCount', 0);
 
     await this.sendNextQuestion(client.data.code);
@@ -206,6 +217,7 @@ export class GameQuestionWebsocketGateway
     this.server.to(`game:${code}`).emit('answersCount', answered);
 
     if (allAnswered) {
+      this.cancelQuizzTimer(code);
       this.server.to(`game:${code}`).emit('results', results);
     }
   }
@@ -222,7 +234,50 @@ export class GameQuestionWebsocketGateway
       return;
     }
 
+    this.cancelQuizzTimer(client.data.code);
     await this.sendNextQuestion(client.data.code);
+  }
+
+  private cancelQuizzTimer(code: string): void {
+    const timer = this.questionTimers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      this.questionTimers.delete(code);
+    }
+  }
+
+  async onApplicationBootstrap(): Promise<void> {
+    const activeGames = await this.gameSessionService.getActiveQuizzGames();
+    if (activeGames.length === 0) return;
+
+    console.log(`[WS] Recovering ${activeGames.length} active quizz timer(s)...`);
+
+    for (const { code, questionStartedAt } of activeGames) {
+      const elapsed = Date.now() - questionStartedAt;
+      const remaining = QUIZZ_TIMER_SECONDS * 1000 - elapsed;
+
+      if (remaining > 0) {
+        this.startQuizzTimer(code, remaining);
+        console.log(`[Game ${code}] Timer resumed with ${Math.round(remaining / 1000)}s remaining`);
+      } else {
+        void this.gameSessionService.forceExpireQuizz(code).then(() => {
+          console.log(`[Game ${code}] Timer expired during downtime — force-expired on recovery`);
+        });
+      }
+    }
+  }
+
+  private startQuizzTimer(code: string, delayMs = QUIZZ_TIMER_SECONDS * 1000): void {
+    this.cancelQuizzTimer(code);
+    const timer = setTimeout(async () => {
+      this.questionTimers.delete(code);
+      const results = await this.gameSessionService.forceExpireQuizz(code);
+      const players = await this.gameSessionService.getPlayers(code);
+      this.server.to(`game:${code}`).emit('players', players);
+      this.server.to(`game:${code}`).emit('results', results);
+      console.log(`[Game ${code}] Quizz timer expired — results forced`);
+    }, delayMs);
+    this.questionTimers.set(code, timer);
   }
 
   private async sendNextQuestion(code: string): Promise<void> {
@@ -234,9 +289,14 @@ export class GameQuestionWebsocketGateway
       return;
     }
 
+    const game = await this.gameSessionService.getGame(code);
     const players = await this.gameSessionService.getPlayers(code);
     this.server.to(`game:${code}`).emit('players', players);
     this.server.to(`game:${code}`).emit('answersCount', 0);
     this.server.to(`game:${code}`).emit('currentQuestion', result);
+
+    if (game?.gameType === GameType.QUIZZ) {
+      this.startQuizzTimer(code);
+    }
   }
 }

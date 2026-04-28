@@ -13,6 +13,7 @@ import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
 import { TenBut } from '../../ten-but/entities/ten-but.entity.js';
+import { QuizzQuestion } from '../../quizz/entities/quizz-question.entity.js';
 import { ReportReason } from '../../../types/enums/ReportReason.js';
 
 @Entity("report")
@@ -49,6 +50,9 @@ export class Report extends BaseEntity {
 
   @ManyToOne(() => TenBut, { nullable: true, onDelete: 'CASCADE' })
   tenBut: TenBut | null;
+
+  @ManyToOne(() => QuizzQuestion, { nullable: true, onDelete: 'CASCADE' })
+  quizzQuestion: QuizzQuestion | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

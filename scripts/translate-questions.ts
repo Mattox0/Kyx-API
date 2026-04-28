@@ -353,6 +353,84 @@ async function translateTenBut(): Promise<void> {
   console.log('\n  TenBut terminé.');
 }
 
+async function translateQuizz(): Promise<void> {
+  console.log('\n📋 Quizz...');
+
+  const result = await pool.query(`
+    SELECT qq.id, qqt.text AS question
+    FROM "quizz-question" qq
+    JOIN "quizz-question-translation" qqt ON qqt."quizzQuestionId" = qq.id AND qqt.locale = 'fr'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "quizz-question-translation" x
+      WHERE x."quizzQuestionId" = qq.id AND x.locale = $1
+    )
+  `, [TARGET_LOCALE]);
+  const rows = result.rows as { id: string; question: string }[];
+
+  console.log(`  → ${rows.length} questions à traduire`);
+  if (rows.length > 0) {
+    let done = 0;
+    for (const batch of chunks(rows, BATCH_SIZE)) {
+      const translated = await translateTexts(batch.map((r) => r.question));
+      if (!DRY_RUN) {
+        for (let i = 0; i < batch.length; i++) {
+          await pool.query(
+            `INSERT INTO "quizz-question-translation" ("quizzQuestionId", locale, text)
+             VALUES ($1, $2, $3)
+             ON CONFLICT ("quizzQuestionId", locale) DO UPDATE SET text = EXCLUDED.text`,
+            [batch[i].id, TARGET_LOCALE, translated[i]],
+          );
+        }
+      } else {
+        batch.slice(0, 3).forEach((r, i) =>
+          console.log(`  [dry-run] ${r.question.slice(0, 60)} → ${translated[i].slice(0, 60)}`),
+        );
+      }
+      done += batch.length;
+      process.stdout.write(`\r  ✅ ${done}/${rows.length} (${Math.round((done / rows.length) * 100)}%)`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    console.log('\n  Questions Quizz terminées.');
+  }
+
+  const answerResult = await pool.query(`
+    SELECT qa.id, qat.text
+    FROM "quizz-answer" qa
+    JOIN "quizz-answer-translation" qat ON qat."quizzAnswerId" = qa.id AND qat.locale = 'fr'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "quizz-answer-translation" x
+      WHERE x."quizzAnswerId" = qa.id AND x.locale = $1
+    )
+  `, [TARGET_LOCALE]);
+  const answerRows = answerResult.rows as { id: string; text: string }[];
+
+  console.log(`  → ${answerRows.length} réponses à traduire`);
+  if (answerRows.length === 0) return;
+
+  let answerDone = 0;
+  for (const batch of chunks(answerRows, BATCH_SIZE)) {
+    const translated = await translateTexts(batch.map((r) => r.text));
+    if (!DRY_RUN) {
+      for (let i = 0; i < batch.length; i++) {
+        await pool.query(
+          `INSERT INTO "quizz-answer-translation" ("quizzAnswerId", locale, text)
+           VALUES ($1, $2, $3)
+           ON CONFLICT ("quizzAnswerId", locale) DO UPDATE SET text = EXCLUDED.text`,
+          [batch[i].id, TARGET_LOCALE, translated[i]],
+        );
+      }
+    } else {
+      batch.slice(0, 3).forEach((r, i) =>
+        console.log(`  [dry-run] ${r.text.slice(0, 60)} → ${translated[i].slice(0, 60)}`),
+      );
+    }
+    answerDone += batch.length;
+    process.stdout.write(`\r  ✅ ${answerDone}/${answerRows.length} (${Math.round((answerDone / answerRows.length) * 100)}%)`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log('\n  Réponses Quizz terminées.');
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -374,6 +452,7 @@ async function main() {
   if (!MODULE_FILTER || MODULE_FILTER === 'testPurity') await translateTestPurity();
   if (!MODULE_FILTER || MODULE_FILTER === 'mostLikelyTo') await translateMostLikelyTo();
   if (!MODULE_FILTER || MODULE_FILTER === 'tenBut') await translateTenBut();
+  if (!MODULE_FILTER || MODULE_FILTER === 'quizz') await translateQuizz();
 
   console.log('\n🎉 Terminé !');
 }

@@ -1,10 +1,10 @@
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 
 export class CustomQuestionDto {
-  @IsIn(['never-have', 'truth-dare', 'prefer', 'most-likely-to', 'ten-but'])
-  type: 'never-have' | 'truth-dare' | 'prefer' | 'most-likely-to' | 'ten-but';
+  @IsIn(['never-have', 'truth-dare', 'prefer', 'most-likely-to', 'ten-but', 'quizz'])
+  type: 'never-have' | 'truth-dare' | 'prefer' | 'most-likely-to' | 'ten-but' | 'quizz';
 
-  @ValidateIf((o) => o.type === 'never-have' || o.type === 'truth-dare' || o.type === 'most-likely-to' || o.type === 'ten-but')
+  @ValidateIf((o) => o.type === 'never-have' || o.type === 'truth-dare' || o.type === 'most-likely-to' || o.type === 'ten-but' || o.type === 'quizz')
   @IsString()
   @IsNotEmpty()
   question?: string;
@@ -27,4 +27,15 @@ export class CustomQuestionDto {
   @IsInt()
   @IsOptional()
   score?: number;
+
+  @ValidateIf((o) => o.type === 'quizz')
+  @IsString()
+  @IsNotEmpty()
+  correctAnswer?: string;
+
+  @ValidateIf((o) => o.type === 'quizz')
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  wrongAnswers?: string[];
 }

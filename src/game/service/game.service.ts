@@ -286,6 +286,8 @@ export class GameService {
           currentQuestion: null,
           customQuestionsPool,
           remainingCustomQuestions: [...customQuestionsPool],
+          questionStartedAt: null,
+          ...(dto.quizzDifficulties && dto.quizzDifficulties.length > 0 && { quizzDifficulties: dto.quizzDifficulties }),
         }),
       );
     }
@@ -356,6 +358,16 @@ function buildCustomQuestionPool(customQuestions: CustomQuestionDto[]): CustomQu
       return {
         entity: { id, score: (cq as any).score ?? 10, question: cq.question!, mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now } as any,
         questionType: 'ten-but',
+      };
+    }
+    if (cq.type === 'quizz') {
+      const answers = shuffle([
+        { id: crypto.randomUUID(), text: (cq as any).correctAnswer ?? '', isCorrect: true },
+        ...((cq as any).wrongAnswers ?? []).map((w: string) => ({ id: crypto.randomUUID(), text: w, isCorrect: false })),
+      ]);
+      return {
+        entity: { id, question: cq.question!, difficulty: 'MEDIUM', mentionedUserGender: null, mode: null, createdDate: now, updatedDate: now, answers } as any,
+        questionType: 'quizz',
       };
     }
     return {

@@ -1,6 +1,7 @@
 import { IsArray, IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { GameType } from '../../../types/enums/GameType.js';
 import { CustomQuestionDto } from '../../common/dto/custom-question.dto.js';
+import { QuizzDifficulty } from '../../../types/enums/QuizzDifficulty.js';
 
 export class CreateGameDto {
   @IsEnum(GameType)
@@ -15,4 +16,6 @@ export class CreateGameDto {
   isLocal?: boolean;
 
   customQuestions?: CustomQuestionDto[];
+
+  quizzDifficulties?: QuizzDifficulty[];
 }

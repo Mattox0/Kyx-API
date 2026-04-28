@@ -5,4 +5,5 @@ export enum GameType {
   TEST_PURITY = 'testPurity',
   MOST_LIKELY_TO = 'mostLikelyTo',
   TEN_BUT = 'tenBut',
+  QUIZZ = 'quizz',
 }

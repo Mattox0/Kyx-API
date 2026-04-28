@@ -1,6 +1,7 @@
 import { Gender } from '../enums/Gender.js';
 import { ChallengeType } from '../enums/TruthDareChallengeType.js';
 import { GameType } from '../enums/GameType.js';
+import { QuizzDifficulty } from '../enums/QuizzDifficulty.js';
 
 export interface FlatMode {
   id: string;
@@ -42,4 +43,16 @@ export interface FlatTenBut extends FlatBase {
   question: string;
 }
 
-export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare | FlatMostLikelyTo | FlatTenBut;
+export interface FlatQuizzAnswer {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface FlatQuizz extends FlatBase {
+  question: string;
+  difficulty: QuizzDifficulty;
+  answers: FlatQuizzAnswer[];
+}
+
+export type FlatQuestion = FlatNeverHave | FlatPrefer | FlatTruthDare | FlatMostLikelyTo | FlatTenBut | FlatQuizz;

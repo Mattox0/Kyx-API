@@ -8,12 +8,13 @@ import { NeverHave } from '../../never-have/entities/never-have.entity.js';
 import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
 import { TenBut } from '../../ten-but/entities/ten-but.entity.js';
+import { QuizzQuestion } from '../../quizz/entities/quizz-question.entity.js';
 
 @Injectable()
 export class ReportService {
   constructor(private readonly dataSource: DataSource) {}
 
-  private async resolveQuestion(questionId: string): Promise<{ truthDare?: { id: string }; neverHave?: { id: string }; prefer?: { id: string }; mostLikelyTo?: { id: string }; tenBut?: { id: string } }> {
+  private async resolveQuestion(questionId: string): Promise<{ truthDare?: { id: string }; neverHave?: { id: string }; prefer?: { id: string }; mostLikelyTo?: { id: string }; tenBut?: { id: string }; quizzQuestion?: { id: string } }> {
     const truthDare = await this.dataSource.getRepository(TruthDare).findOne({ where: { id: questionId } });
     if (truthDare) return { truthDare: { id: questionId } };
 
@@ -29,6 +30,9 @@ export class ReportService {
     const tenBut = await this.dataSource.getRepository(TenBut).findOne({ where: { id: questionId } });
     if (tenBut) return { tenBut: { id: questionId } };
 
+    const quizzQuestion = await this.dataSource.getRepository(QuizzQuestion).findOne({ where: { id: questionId } });
+    if (quizzQuestion) return { quizzQuestion: { id: questionId } };
+
     throw new NotFoundException(`Question ${questionId} not found`);
   }
 
@@ -42,6 +46,7 @@ export class ReportService {
       .leftJoinAndSelect('report.prefer', 'prefer')
       .leftJoinAndSelect('report.mostLikelyTo', 'mostLikelyTo')
       .leftJoinAndSelect('report.tenBut', 'tenBut')
+      .leftJoinAndSelect('report.quizzQuestion', 'quizzQuestion')
       .leftJoinAndSelect('report.user', 'user');
 
     if (search) {
@@ -80,6 +85,7 @@ export class ReportService {
       .leftJoinAndSelect('report.prefer', 'prefer')
       .leftJoinAndSelect('report.mostLikelyTo', 'mostLikelyTo')
       .leftJoinAndSelect('report.tenBut', 'tenBut')
+      .leftJoinAndSelect('report.quizzQuestion', 'quizzQuestion')
       .leftJoinAndSelect('report.user', 'user')
       .where('report.id = :id', { id })
       .getOne();
@@ -118,6 +124,7 @@ export class ReportService {
       updateData.prefer = null;
       updateData.mostLikelyTo = null;
       updateData.tenBut = null;
+      updateData.quizzQuestion = null;
       Object.assign(updateData, questionRelation);
     }
 

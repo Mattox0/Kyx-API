@@ -16,6 +16,7 @@ import { Prefer } from '../../prefer/entities/prefer.entity.js';
 import { TruthDare } from '../../truth-dare/entities/truth-dare.entity.js';
 import { MostLikelyTo } from '../../most-likely-to/entities/most-likely-to.entity.js';
 import { TenBut } from '../../ten-but/entities/ten-but.entity.js';
+import { QuizzQuestion } from '../../quizz/entities/quizz-question.entity.js';
 import { Game } from '../entities/game.entity.js';
 import { DEFAULT_LOCALE } from '../../config/languages.js';
 import {
@@ -23,6 +24,7 @@ import {
   FlatMostLikelyTo,
   FlatNeverHave,
   FlatPrefer,
+  FlatQuizz,
   FlatTenBut,
   FlatTruthDare,
 } from '../../../types/ws/FlatQuestion.js';
@@ -98,6 +100,8 @@ export class GameSessionService {
       ...player,
       hasAnswered: false,
       answer: null,
+      score: player.score ?? 0,
+      answeredAt: null,
     };
 
     const existingIndex = players.findIndex((p) => p.id === player.id);
@@ -118,15 +122,27 @@ export class GameSessionService {
   ): Promise<{
     players: PlayerSession[];
     allAnswered: boolean;
-    results: Record<string, number> | null;
+    results: { percentages: Record<string, number>; scores: Record<string, number> } | null;
   }> {
     return this.withLock(`submitAnswer:${code}`, async () => {
+      const game = await this.getGame(code);
       const players = await this.getPlayers(code);
+      const now = Date.now();
 
       const index = players.findIndex((p) => p.socketId === socketId);
       if (index >= 0) {
         players[index].hasAnswered = true;
         players[index].answer = answer;
+        players[index].answeredAt = now;
+
+        if (game?.gameType === GameType.QUIZZ && game.questionStartedAt && answer) {
+          const quizzQuestion = game.currentQuestion as FlatQuizz | null;
+          const isCorrect = quizzQuestion?.answers?.find((a) => a.id === answer)?.isCorrect ?? false;
+          if (isCorrect) {
+            const responseTime = now - game.questionStartedAt;
+            players[index].score = (players[index].score ?? 0) + this.computeQuizzScore(responseTime);
+          }
+        }
       }
 
       await this.savePlayers(code, players);
@@ -138,7 +154,7 @@ export class GameSessionService {
     });
   }
 
-  computeResults(players: PlayerSession[]): Record<string, number> {
+  computeResults(players: PlayerSession[]): { percentages: Record<string, number>; scores: Record<string, number> } {
     const counts: Record<string, number> = {};
     for (const { answer } of players) {
       if (answer !== null) counts[answer] = (counts[answer] ?? 0) + 1;
@@ -150,12 +166,33 @@ export class GameSessionService {
       percentages[answer] = Math.round((count / total) * 100);
     }
 
-    return percentages;
+    const scores: Record<string, number> = {};
+    for (const { id, score } of players) {
+      scores[id] = score ?? 0;
+    }
+
+    return { percentages, scores };
+  }
+
+  private computeQuizzScore(responseTime: number): number {
+    const clampedTime = Math.min(responseTime, 30_000);
+    return Math.round(100 * (1 - clampedTime / 30_000) * 0.5 + 50);
+  }
+
+  async forceExpireQuizz(code: string): Promise<{ percentages: Record<string, number>; scores: Record<string, number> }> {
+    return this.withLock(`submitAnswer:${code}`, async () => {
+      const players = await this.getPlayers(code);
+      const updated = players.map((p) =>
+        p.hasAnswered ? p : { ...p, hasAnswered: true, answer: null, answeredAt: Date.now() },
+      );
+      await this.savePlayers(code, updated);
+      return this.computeResults(updated);
+    });
   }
 
   private async resetAnswers(code: string): Promise<void> {
     const players = await this.getPlayers(code);
-    const reset = players.map((p) => ({ ...p, hasAnswered: false, answer: null }));
+    const reset = players.map((p) => ({ ...p, hasAnswered: false, answer: null, answeredAt: null }));
     await this.savePlayers(code, reset);
   }
 
@@ -196,6 +233,31 @@ export class GameSessionService {
   ): Promise<PlayerSession | null> {
     const players = await this.getPlayers(code);
     return players.find((p) => p.id === userId) ?? null;
+  }
+
+  async getActiveQuizzGames(): Promise<Array<{ code: string; questionStartedAt: number }>> {
+    const keys = await this.redisService.keys('game:*');
+    const codes = keys
+      .filter((k) => !k.endsWith(':players'))
+      .map((k) => k.replace(/^game:/, ''));
+
+    const result: Array<{ code: string; questionStartedAt: number }> = [];
+
+    for (const code of codes) {
+      const game = await this.getGame(code);
+      if (
+        game?.gameType !== GameType.QUIZZ ||
+        game.status !== GameStatus.IN_PROGRESS ||
+        game.questionStartedAt === null
+      ) continue;
+
+      const players = await this.getPlayers(code);
+      if (players.length === 0 || players.every((p) => p.hasAnswered)) continue;
+
+      result.push({ code, questionStartedAt: game.questionStartedAt });
+    }
+
+    return result;
   }
 
   async cleanupGame(code: string): Promise<void> {
@@ -245,6 +307,7 @@ export class GameSessionService {
       currentUserMentionedId: null,
       customQuestionsPool,
       remainingCustomQuestions: shuffle([...customQuestionsPool]),
+      questionStartedAt: null,
     };
     await this.saveGame(code, resetSession);
     await this.resetAnswers(code);
@@ -264,6 +327,7 @@ export class GameSessionService {
     userTarget: PlayerSession | null;
     userMentioned: PlayerSession | null;
     questionNumber: number;
+    questionStartedAt: number | null;
   } | null> {
     const game = await this.getGame(code);
     if (!game || game.previousQuestionsIds.length >= 50) return null;
@@ -277,6 +341,7 @@ export class GameSessionService {
 
     game.previousQuestionsIds = [...game.previousQuestionsIds, question.entity.id];
     game.currentQuestion = question.entity;
+    game.questionStartedAt = Date.now();
     await this.resetAnswers(code);
 
     const { userTarget, userMentioned } = this.resolveTargets(game.gameType, question.entity, players);
@@ -291,6 +356,7 @@ export class GameSessionService {
       userTarget,
       userMentioned,
       questionNumber: game.previousQuestionsIds.length,
+      questionStartedAt: game.questionStartedAt,
     };
   }
 
@@ -318,14 +384,14 @@ export class GameSessionService {
     const remaining = game.remainingCustomQuestions ?? [];
     const slotsLeft = 50 - previousQuestionsIds.length;
     const mustServeCustom = remaining.length >= slotsLeft;
-    const serveCustom = remaining.length > 0 && (mustServeCustom || Math.random() < 0.5);
+    const serveCustom = remaining.length > 0 && (mustServeCustom || Math.random() < remaining.length / slotsLeft);
 
     if (serveCustom) {
       game.remainingCustomQuestions = remaining.slice(1);
       return remaining[0];
     }
 
-    return this.fetchQuestion(gameType, modeIds, previousQuestionsIds, locale ?? DEFAULT_LOCALE, { allowedMentionedGenders, genderCounts });
+    return this.fetchQuestion(gameType, modeIds, previousQuestionsIds, locale ?? DEFAULT_LOCALE, { allowedMentionedGenders, genderCounts, quizzDifficulties: game.quizzDifficulties });
   }
 
   private pickPlayer(players: PlayerSession[], gender: Gender | null, exclude?: string): PlayerSession | null {
@@ -375,6 +441,10 @@ export class GameSessionService {
       return { userTarget: null, userMentioned: this.pickPlayer(players, genderToUse) };
     }
 
+    if (gameType === GameType.QUIZZ) {
+      return { userTarget: null, userMentioned: null };
+    }
+
     const { mentionedUserGender } = entity as FlatNeverHave;
     return { userTarget: null, userMentioned: this.pickPlayer(players, mentionedUserGender) };
   }
@@ -384,7 +454,7 @@ export class GameSessionService {
     modeIds: string[],
     previousIds: string[],
     locale: string,
-    filters?: { allowedMentionedGenders?: Gender[]; genderCounts?: Record<Gender, number> },
+    filters?: { allowedMentionedGenders?: Gender[]; genderCounts?: Record<Gender, number>; quizzDifficulties?: string[] },
   ): Promise<{ entity: Question; questionType: string } | null> {
     const configs: Partial<Record<
       GameType,
@@ -393,6 +463,7 @@ export class GameSessionService {
         alias: string;
         questionType: string;
         flatten: (raw: any, t: any) => Question;
+        additionalJoins?: Array<{ relation: string; alias: string }>;
       }
     >> = {
       [GameType.NEVER_HAVE]: {
@@ -464,6 +535,34 @@ export class GameSessionService {
           question: t.question,
         }),
       },
+      [GameType.QUIZZ]: {
+        entity: QuizzQuestion,
+        alias: 'quizz',
+        questionType: 'quizz',
+        additionalJoins: [
+          { relation: 'quizz.answers', alias: 'answer' },
+          { relation: 'answer.translations', alias: 'answerTranslation' },
+        ],
+        flatten: (raw, t): FlatQuizz => {
+          const answers = (raw.answers ?? []).map((a: any) => {
+            const answerTranslations: any[] = a.translations ?? [];
+            const answerTranslation =
+              answerTranslations.find((at: any) => at.locale === locale) ??
+              answerTranslations.find((at: any) => at.locale === DEFAULT_LOCALE);
+            return { id: a.id, text: answerTranslation?.text ?? '', isCorrect: a.isCorrect };
+          });
+          return {
+            id: raw.id,
+            mode: flattenMode(raw.mode, locale),
+            createdDate: raw.createdDate,
+            updatedDate: raw.updatedDate,
+            mentionedUserGender: null,
+            question: t.text,
+            difficulty: raw.difficulty,
+            answers,
+          };
+        },
+      },
     };
 
     const config = configs[gameType];
@@ -481,7 +580,7 @@ export class GameSessionService {
       idQb.andWhere(`${config.alias}.id NOT IN (:...previousIds)`, { previousIds });
     }
 
-    if (filters?.allowedMentionedGenders) {
+    if (filters?.allowedMentionedGenders && gameType !== GameType.QUIZZ) {
       idQb.andWhere(
         `(${config.alias}.mentionedUserGender IS NULL OR ${config.alias}.mentionedUserGender IN (:...allowedMentionedGenders))`,
         { allowedMentionedGenders: filters.allowedMentionedGenders },
@@ -515,18 +614,27 @@ export class GameSessionService {
       );
     }
 
+    if (gameType === GameType.QUIZZ && filters?.quizzDifficulties && filters.quizzDifficulties.length > 0) {
+      idQb.andWhere(`${config.alias}.difficulty IN (:...quizzDifficulties)`, { quizzDifficulties: filters.quizzDifficulties });
+    }
+
     const idResult = await idQb.getRawOne<{ id: string }>();
     if (!idResult) return null;
 
-    const raw = await this.dataSource
+    const rawQb = this.dataSource
       .createQueryBuilder()
       .select(config.alias)
       .from(config.entity, config.alias)
       .leftJoinAndSelect(`${config.alias}.mode`, 'mode')
       .leftJoinAndSelect('mode.translations', 'modeTranslation')
       .leftJoinAndSelect(`${config.alias}.translations`, 'translation')
-      .where(`${config.alias}.id = :id`, { id: idResult.id })
-      .getOne();
+      .where(`${config.alias}.id = :id`, { id: idResult.id });
+
+    for (const join of config.additionalJoins ?? []) {
+      rawQb.leftJoinAndSelect(join.relation, join.alias);
+    }
+
+    const raw = await rawQb.getOne();
     if (!raw) return null;
 
     const translations: { locale: string }[] = (raw as any).translations ?? [];

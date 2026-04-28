@@ -19,4 +19,6 @@ export interface PlayerSession {
   gender: Gender;
   hasAnswered: boolean;
   answer: string | null;
+  score: number;
+  answeredAt: number | null;
 }

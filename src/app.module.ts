@@ -45,6 +45,11 @@ import { MostLikelyToTranslation } from './most-likely-to/entities/most-likely-t
 import { TenButModule } from './ten-but/ten-but.module.js';
 import { TenBut } from './ten-but/entities/ten-but.entity.js';
 import { TenButTranslation } from './ten-but/entities/ten-but-translation.entity.js';
+import { QuizzModule } from './quizz/quizz.module.js';
+import { QuizzQuestion } from './quizz/entities/quizz-question.entity.js';
+import { QuizzQuestionTranslation } from './quizz/entities/quizz-question-translation.entity.js';
+import { QuizzAnswer } from './quizz/entities/quizz-answer.entity.js';
+import { QuizzAnswerTranslation } from './quizz/entities/quizz-answer-translation.entity.js';
 
 @Module({
   imports: [
@@ -61,7 +66,7 @@ import { TenButTranslation } from './ten-but/entities/ten-but-translation.entity
         username: configService.getOrThrow<string>('POSTGRES_USER'),
         password: configService.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: configService.getOrThrow<string>('POSTGRES_DATABASE'),
-        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken, Purity, PurityTranslation, PurityAnswer, PurityAnswerTranslation, MostLikelyTo, MostLikelyToTranslation, TenBut, TenButTranslation],
+        entities: [TruthDare, TruthDareTranslation, Prefer, PreferTranslation, NeverHave, NeverHaveTranslation, Mode, ModeTranslation, AdminUser, User, Report, Suggestion, DeviceToken, Purity, PurityTranslation, PurityAnswer, PurityAnswerTranslation, MostLikelyTo, MostLikelyToTranslation, TenBut, TenButTranslation, QuizzQuestion, QuizzQuestionTranslation, QuizzAnswer, QuizzAnswerTranslation],
         autoLoadEntities: true,
         synchronize: false,
         extra: {
@@ -90,6 +95,7 @@ import { TenButTranslation } from './ten-but/entities/ten-but-translation.entity
     PurityModule,
     MostLikelyToModule,
     TenButModule,
+    QuizzModule,
   ],
   controllers: [],
   providers: [ModeExistsConstraint],

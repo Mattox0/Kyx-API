@@ -22,4 +22,6 @@ export interface GameSession {
   currentUserMentionedId: string | null;
   customQuestionsPool: CustomQuestionEntry[];
   remainingCustomQuestions: CustomQuestionEntry[];
+  quizzDifficulties?: string[];
+  questionStartedAt: number | null;
 }

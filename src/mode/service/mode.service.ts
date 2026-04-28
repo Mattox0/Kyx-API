@@ -88,6 +88,7 @@ export class ModeService {
       'test-purity': GameType.TEST_PURITY,
       'most-likely-to': GameType.MOST_LIKELY_TO,
       'ten-but': GameType.TEN_BUT,
+      'quizz': GameType.QUIZZ,
     };
 
     const gameType = gameTypeMap[gameName];
