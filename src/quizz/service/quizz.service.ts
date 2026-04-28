@@ -49,6 +49,18 @@ function mapModeTranslations(mode: any): any {
 export class QuizzService {
   constructor(private readonly dataSource: DataSource) {}
 
+  private async isDuplicateQuestion(frText: string): Promise<boolean> {
+    const normalized = frText.trim().toLowerCase();
+    const existing = await this.dataSource
+      .createQueryBuilder()
+      .select('1')
+      .from(QuizzQuestionTranslation, 't')
+      .where("LOWER(TRIM(t.text)) = :normalized AND t.locale = 'fr'", { normalized })
+      .limit(1)
+      .getRawOne();
+    return existing != null;
+  }
+
   async findAll(
     page: number,
     limit: number,
@@ -149,6 +161,10 @@ export class QuizzService {
   }
 
   async create(dto: CreateQuizzDto) {
+    const frText = dto.translations?.fr?.text ?? '';
+    if (frText.trim() && await this.isDuplicateQuestion(frText)) {
+      throw new BadRequestException('Une question avec ce texte existe déjà');
+    }
     try {
       const result = await this.dataSource
         .createQueryBuilder()
@@ -319,6 +335,12 @@ export class QuizzService {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      const frText = item.translations?.fr?.text ?? '';
+      if (frText.trim() && await this.isDuplicateQuestion(frText)) {
+        skipped++;
+        errors.push(`Ligne ${i + 1}: doublon ignoré — "${frText.trim().slice(0, 60)}${frText.trim().length > 60 ? '…' : ''}"`);
+        continue;
+      }
       try {
         const result = await this.dataSource
           .createQueryBuilder()
@@ -402,7 +424,7 @@ export class QuizzService {
     locale: string = DEFAULT_LOCALE,
   ): Promise<{ question: FlatQuizz; questionType: 'quizz'; userTarget: null; userMentioned: null }[]> {
     const customCount = (dto.customQuestions ?? []).filter((cq) => cq.type === 'quizz').length;
-    const dbLimit = Math.max(0, 50 - customCount);
+    const dbLimit = Math.max(0, 25 - customCount);
 
     const difficulties = dto.difficulties && dto.difficulties.length > 0 ? dto.difficulties : null;
 

@@ -330,7 +330,9 @@ export class GameSessionService {
     questionStartedAt: number | null;
   } | null> {
     const game = await this.getGame(code);
-    if (!game || game.previousQuestionsIds.length >= 50) return null;
+    if (!game) return null;
+    const maxQuestions = game.gameType === GameType.QUIZZ ? 25 : 50;
+    if (game.previousQuestionsIds.length >= maxQuestions) return null;
 
     const players = await this.getPlayers(code);
     const allowedMentionedGenders = this.computeAllowedGenders(players);
@@ -382,7 +384,8 @@ export class GameSessionService {
   ): Promise<CustomQuestionEntry | null> {
     const { gameType, modeIds, previousQuestionsIds, locale } = game;
     const remaining = game.remainingCustomQuestions ?? [];
-    const slotsLeft = 50 - previousQuestionsIds.length;
+    const maxQ = gameType === GameType.QUIZZ ? 25 : 50;
+    const slotsLeft = maxQ - previousQuestionsIds.length;
     const mustServeCustom = remaining.length >= slotsLeft;
     const serveCustom = remaining.length > 0 && (mustServeCustom || Math.random() < remaining.length / slotsLeft);
 
@@ -559,7 +562,7 @@ export class GameSessionService {
             mentionedUserGender: null,
             question: t.text,
             difficulty: raw.difficulty,
-            answers,
+            answers: shuffle(answers),
           };
         },
       },
